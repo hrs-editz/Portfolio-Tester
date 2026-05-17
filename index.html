@@ -209,6 +209,7 @@
     <li><a href="#about">About</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#videos">Videos</a></li>
+    <li><a href="#colorgrade">Color Grade</a></li>
     <li><a href="#experience">Experience</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
@@ -232,6 +233,7 @@
     <li><a href="#about" onclick="closeDrawer()"><span class="link-num">01</span>About</a></li>
     <li><a href="#skills" onclick="closeDrawer()"><span class="link-num">02</span>Skills</a></li>
     <li><a href="#videos" onclick="closeDrawer()"><span class="link-num">04</span>Videos</a></li>
+    <li><a href="#colorgrade" onclick="closeDrawer()"><span class="link-num">05</span>Color Grade</a></li>
     <li><a href="#experience" onclick="closeDrawer()"><span class="link-num">05</span>Experience</a></li>
     <li><a href="#contact" onclick="closeDrawer()"><span class="link-num">06</span>Contact</a></li>
   </ul>
@@ -407,6 +409,30 @@
     <button class="video-lightbox-close" onclick="closeLightbox()">✕</button>
     <div class="video-lightbox-frame" id="video-lightbox-frame"></div>
     <div class="video-lightbox-title" id="video-lightbox-title"></div>
+  </div>
+</div>
+
+<!-- COLOR GRADE SECTION -->
+<section id="colorgrade">
+  <div class="fade-up visible">
+    <div class="section-eyebrow">Color Work</div>
+    <h2 class="section-title">Color <em style="font-style:italic;color:var(--accent)">Grade</em></h2>
+    <p class="section-sub">Stills from graded shots — each frame tells the mood. Click any image to view full-screen.</p>
+  </div>
+  <div class="cg-grid fade-up visible" id="colorgrade-container">
+    <p style="color:var(--muted);font-family:var(--font-mono);font-size:0.85rem;padding:2rem 0;">No color grade shots yet. Open the admin panel → Color Grade tab to upload your work.</p>
+  </div>
+</section>
+
+<!-- COLOR GRADE LIGHTBOX -->
+<div class="cg-lightbox" id="cg-lightbox">
+  <div class="cg-lightbox-inner" id="cg-lightbox-inner">
+    <button class="cg-lightbox-close" onclick="closeCGLightbox()">✕</button>
+    <img class="cg-lightbox-img" id="cg-lightbox-img" src="" alt="">
+    <div class="cg-lightbox-meta">
+      <div class="cg-lightbox-title" id="cg-lightbox-title"></div>
+      <div class="cg-lightbox-tags" id="cg-lightbox-tags"></div>
+    </div>
   </div>
 </div>
 
@@ -674,6 +700,7 @@
       <button class="admin-tab" onclick="switchTab('basics')">Basics</button>
       <button class="admin-tab" onclick="switchTab('about')">About</button>
       <button class="admin-tab" onclick="switchTab('videos')">Videos</button>
+      <button class="admin-tab" onclick="switchTab('colorgrade')">🎨 Color Grade</button>
       <button class="admin-tab" onclick="switchTab('skills')">Skills</button>
       <button class="admin-tab" onclick="switchTab('projects')">Projects</button>
       <button class="admin-tab" onclick="switchTab('experience')">Experience</button>
@@ -747,6 +774,15 @@
       </div>
       <div id="videos-editor"></div>
       <button class="admin-btn-add" onclick="addVideo()">+ Add Video</button>
+    </div>
+
+    <!-- COLOR GRADE -->
+    <div class="admin-section" id="tab-colorgrade">
+      <div style="background:rgba(232,197,71,0.07);border:1px solid rgba(232,197,71,0.25);border-radius:4px;padding:1rem 1.2rem;margin-bottom:1.4rem;font-family:var(--font-mono);font-size:0.73rem;color:var(--accent);line-height:1.8;letter-spacing:0.03em;">
+        🎨 <strong>Color Grade Gallery</strong> — Upload portrait (9:16) or landscape (16:9) graded shots. They publish live to the Color Grade section for viewers to browse.
+      </div>
+      <div id="colorgrade-editor"></div>
+      <button class="admin-btn-add" onclick="addColorGrade()">+ Add Color Grade Shot</button>
     </div>
 
     <!-- SKILLS -->
@@ -877,6 +913,141 @@
 
 
 <!-- SCROLL TO TOP BUTTON -->
+<!-- COLOR GRADE STYLES -->
+<style>
+/* ── Color Grade Section ───────────────────────── */
+#colorgrade { padding: var(--section-pad, 5rem 0); }
+
+.cg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.4rem;
+  margin-top: 2.5rem;
+}
+
+.cg-card {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--dark3, #111);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.cg-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+
+/* Portrait card (9:16) */
+.cg-card.portrait .cg-thumb { aspect-ratio: 9/16; }
+/* Landscape card (16:9) — spans 2 columns on wider screens */
+.cg-card.landscape { grid-column: span 2; }
+.cg-card.landscape .cg-thumb { aspect-ratio: 16/9; }
+
+@media (max-width: 600px) {
+  .cg-card.landscape { grid-column: span 1; }
+}
+
+.cg-thumb {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+.cg-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+.cg-card:hover .cg-thumb img { transform: scale(1.04); }
+
+.cg-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 1rem;
+  opacity: 0; transition: opacity 0.22s ease;
+}
+.cg-card:hover .cg-overlay { opacity: 1; }
+
+.cg-badge {
+  position: absolute; top: 0.6rem; left: 0.6rem;
+  background: rgba(0,0,0,0.7); color: var(--accent, #e8c547);
+  font-family: var(--font-mono, monospace); font-size: 0.6rem;
+  padding: 0.2rem 0.5rem; border-radius: 2px; letter-spacing: 0.06em;
+}
+
+.cg-info { padding: 0.85rem 1rem; }
+.cg-cat {
+  font-family: var(--font-mono, monospace); font-size: 0.65rem;
+  color: var(--accent, #e8c547); letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 0.25rem;
+}
+.cg-title {
+  font-family: var(--font-body, sans-serif); font-size: 0.9rem;
+  color: var(--text, #fff); font-weight: 600; margin-bottom: 0.4rem;
+}
+.cg-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.cg-tag {
+  font-family: var(--font-mono, monospace); font-size: 0.62rem;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--muted, #888); padding: 0.15rem 0.45rem; border-radius: 2px;
+}
+
+/* ── Color Grade Lightbox ───────────────────────── */
+.cg-lightbox {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 9000; display: none;
+  align-items: center; justify-content: center;
+}
+.cg-lightbox.open { display: flex; }
+
+.cg-lightbox-inner {
+  position: relative;
+  max-width: 90vw; max-height: 92vh;
+  display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
+}
+.cg-lightbox-inner.portrait { max-width: 420px; }
+.cg-lightbox-inner.landscape { max-width: 92vw; }
+
+.cg-lightbox-img {
+  max-width: 100%; max-height: 82vh;
+  object-fit: contain; border-radius: 4px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+}
+
+.cg-lightbox-close {
+  position: absolute; top: -2.4rem; right: 0;
+  background: rgba(255,255,255,0.1); border: none;
+  color: #fff; font-size: 1.1rem; width: 2rem; height: 2rem;
+  border-radius: 50%; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.cg-lightbox-close:hover { background: rgba(255,255,255,0.22); }
+
+.cg-lightbox-meta { text-align: center; }
+.cg-lightbox-title {
+  font-family: var(--font-body, sans-serif); font-size: 1rem;
+  color: var(--text, #fff); font-weight: 600;
+}
+.cg-lightbox-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; margin-top: 0.4rem; }
+
+/* ── Admin: Color Grade upload area ─────────────── */
+.cg-upload-area {
+  border: 2px dashed rgba(232,197,71,0.3);
+  border-radius: 4px; padding: 1.4rem 1rem;
+  text-align: center; cursor: pointer;
+  font-family: var(--font-mono, monospace); font-size: 0.78rem;
+  color: var(--muted, #888); transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.cg-upload-area:hover { border-color: rgba(232,197,71,0.6); background: rgba(232,197,71,0.04); }
+.cg-thumb-preview {
+  width: 100%; max-height: 220px; object-fit: contain;
+  border-radius: 3px; margin-top: 0.5rem; display: block;
+}
+</style>
+
 <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Scroll to top">
   <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
     <polyline class="stt-arrow" points="3,12 9,5 15,12"/>
