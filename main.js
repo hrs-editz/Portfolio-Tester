@@ -113,6 +113,34 @@ function render() {
       }).join('');
   setHTML('videos-container', videosHTML);
 
+  // ── Color Grade render ──────────────────────────
+  var cgContainer = document.getElementById('colorgrade-container');
+  if (cgContainer) {
+    if (!DATA.colorGrades || DATA.colorGrades.length === 0) {
+      cgContainer.innerHTML = '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.85rem;padding:2rem 0;">No color grade shots yet. Open the admin panel → Color Grade tab to upload your work.</p>';
+    } else {
+      cgContainer.innerHTML = DATA.colorGrades.map(function(cg, i) {
+        var isPortrait = (cg.layout === 'portrait');
+        var hasImg = cg.imageData && cg.imageData.length > 100;
+        var badgeLabel = isPortrait ? 'PORTRAIT · 9:16' : 'LANDSCAPE · 16:9';
+        var thumbHTML = hasImg
+          ? '<img src="' + cg.imageData + '" alt="' + (cg.title || '') + '">'
+          : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:rgba(255,255,255,0.03);">🎨</div>';
+        return '<div class="cg-card ' + (isPortrait ? 'portrait' : 'landscape') + '" onclick="openCGLightbox(' + i + ')">' +
+          '<div class="cg-thumb">' + thumbHTML +
+          '<div class="cg-badge">' + badgeLabel + '</div>' +
+          '<div class="cg-overlay"></div>' +
+          '</div>' +
+          '<div class="cg-info">' +
+          '<div class="cg-cat">' + (cg.cat || 'Color Grade') + '</div>' +
+          '<div class="cg-title">' + (cg.title || 'Untitled') + '</div>' +
+          '<div class="cg-tags">' + (cg.tags || []).map(function(t) { return '<span class="cg-tag">' + t + '</span>'; }).join('') + '</div>' +
+          '</div></div>';
+      }).join('');
+    }
+  }
+  // ── End Color Grade render ──────────────────────
+
   const tagColors = ['tag-gold','tag-red','tag-blue','tag-white'];
   setHTML('hero-tags', DATA.tags.map((t,i)=>`<span class="tag ${tagColors[i%4]}">${t}</span>`).join(''));
 
@@ -185,6 +213,9 @@ if (DATA.videos) {
   });
 }
 
+// Init colorGrades array if missing
+if (!DATA.colorGrades) DATA.colorGrades = [];
+
 render();
 
 
@@ -255,10 +286,36 @@ function closeLightbox() {
   document.body.style.overflow = '';
 }
 
-document.getElementById('video-lightbox').addEventListener('click', function(e) {
-  if (e.target === this) closeLightbox();
+// ── Color Grade Lightbox ─────────────────────────
+function openCGLightbox(i) {
+  var cg = DATA.colorGrades[i];
+  if (!cg || !cg.imageData) return;
+  var isPortrait = (cg.layout === 'portrait');
+  var inner = document.getElementById('cg-lightbox-inner');
+  var img   = document.getElementById('cg-lightbox-img');
+  var title = document.getElementById('cg-lightbox-title');
+  var tags  = document.getElementById('cg-lightbox-tags');
+  inner.className = 'cg-lightbox-inner ' + (isPortrait ? 'portrait' : 'landscape');
+  img.src = cg.imageData;
+  img.alt = cg.title || '';
+  title.textContent = cg.title || '';
+  tags.innerHTML = (cg.tags || []).map(function(t) { return '<span class="cg-tag">' + t + '</span>'; }).join('');
+  document.getElementById('cg-lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCGLightbox() {
+  document.getElementById('cg-lightbox').classList.remove('open');
+  document.getElementById('cg-lightbox-img').src = '';
+  document.body.style.overflow = '';
+}
+
+document.getElementById('cg-lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeCGLightbox();
 });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeLightbox(); closeCGLightbox(); }
+});
 function openDrawer() {
   document.getElementById('nav-drawer').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
@@ -398,6 +455,7 @@ function populateAdmin() {
   set('edit-ejs-service', DATA.emailjsServiceId);
   set('edit-ejs-template', DATA.emailjsTemplateId);
   renderVideoEditor();
+  renderColorGradeEditor();
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
 }
 
@@ -492,6 +550,80 @@ function addVideo() {
   }, 100);
 }
 
+// ── Color Grade Admin Editor ──────────────────────
+function renderColorGradeEditor() {
+  var c = document.getElementById('colorgrade-editor');
+  if (!c) return;
+  if (!DATA.colorGrades || DATA.colorGrades.length === 0) {
+    c.innerHTML = '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.8rem;margin-bottom:1rem;">No shots added yet. Click "+ Add Color Grade Shot" below.</p>';
+    return;
+  }
+  c.innerHTML = '';
+  DATA.colorGrades.forEach(function(cg, i) {
+    var hasImg = cg.imageData && cg.imageData.length > 100;
+    var previewHTML = hasImg
+      ? '<img class="cg-thumb-preview" src="' + cg.imageData + '" alt="preview">'
+      : '';
+    c.innerHTML +=
+      '<div class="admin-card" id="cg-card-' + i + '">' +
+      '<div class="admin-card-header">' +
+      '<span class="admin-card-title">Shot ' + (i+1) + ': ' + (cg.title || 'Untitled') + '</span>' +
+      '<button class="admin-btn-remove" onclick="removeColorGrade(' + i + ')">Remove</button>' +
+      '</div>' +
+
+      '<div class="form-group">' +
+      '<label>🖼️ Image (Portrait 9:16 or Landscape 16:9)</label>' +
+      '<div class="cg-upload-area" id="cg-area-' + i + '" onclick="document.getElementById(\'cg-file-' + i + '\').click()">' +
+      (hasImg ? '<span style="color:var(--accent)">✅ Image uploaded — click to replace</span>' : '<span>📷 Click to upload graded shot (JPG/PNG/WEBP)</span>') +
+      previewHTML +
+      '</div>' +
+      '<input type="file" id="cg-file-' + i + '" accept="image/*" style="display:none" onchange="handleCGFile(event,' + i + ')">' +
+      '</div>' +
+
+      '<div class="form-row">' +
+      '<div class="form-group"><label>📐 Layout</label>' +
+      '<select id="cg-layout-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
+      '<option value="landscape"' + ((cg.layout !== 'portrait') ? ' selected' : '') + '>🖥️ Landscape (16:9)</option>' +
+      '<option value="portrait"' + (cg.layout === 'portrait' ? ' selected' : '') + '>📱 Portrait (9:16)</option>' +
+      '</select></div>' +
+      '<div class="form-group"><label>Category</label><input type="text" id="cg-cat-' + i + '" value="' + (cg.cat || '') + '" placeholder="e.g. Cinematic, Wedding"></div>' +
+      '</div>' +
+
+      '<div class="form-group"><label>Title</label><input type="text" id="cg-title-' + i + '" value="' + (cg.title || '') + '" placeholder="e.g. Golden Hour Grade"></div>' +
+      '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="cg-tags-' + i + '" value="' + (cg.tags || []).join(', ') + '" placeholder="e.g. LUT, Teal & Orange, Wedding"></div>' +
+      '</div>';
+  });
+}
+
+function handleCGFile(event, i) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var area = document.getElementById('cg-area-' + i);
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    DATA.colorGrades[i].imageData = e.target.result;
+    area.innerHTML = '<span style="color:var(--accent)">✅ Image ready — ' + file.name + '</span>' +
+      '<img class="cg-thumb-preview" src="' + e.target.result + '" alt="preview">';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeColorGrade(i) {
+  DATA.colorGrades.splice(i, 1);
+  renderColorGradeEditor();
+}
+
+function addColorGrade() {
+  if (!DATA.colorGrades) DATA.colorGrades = [];
+  DATA.colorGrades.push({title:'New Shot', cat:'Color Grade', layout:'landscape', tags:['LUT'], imageData:''});
+  renderColorGradeEditor();
+  setTimeout(function() {
+    var cards = document.querySelectorAll('#colorgrade-editor .admin-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({behavior:'smooth'});
+  }, 100);
+}
+// ── End Color Grade Admin Editor ──────────────────
+
 function renderSkillsEditor() {
   const c = document.getElementById('skills-editor'); c.innerHTML = '';
   DATA.skills.forEach((s,i) => {
@@ -580,6 +712,15 @@ function applyChanges() {
     desc: get('vid-desc-'+i),
     tags: get('vid-tags-'+i).split(',').map(s=>s.trim()).filter(Boolean)
   }));
+  DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
+    return {
+      imageData: cg.imageData || '',
+      layout: (document.getElementById('cg-layout-'+i) ? document.getElementById('cg-layout-'+i).value : (cg.layout||'landscape')),
+      cat: get('cg-cat-'+i),
+      title: get('cg-title-'+i),
+      tags: get('cg-tags-'+i).split(',').map(function(s){return s.trim();}).filter(Boolean)
+    };
+  });
   DATA.skills = DATA.skills.map((_,i)=>({
     icon: get(`sk-icon-${i}`), title: get(`sk-title-${i}`),
     desc: get(`sk-desc-${i}`), items: get(`sk-items-${i}`).split(',').map(s=>s.trim()).filter(Boolean)
@@ -675,6 +816,12 @@ async function compressDataImages(data) {
       v.posterData = await compressImage(v.posterData, 600, 0.60);
     delete v.videoData;
     delete v.fileName; delete v.mimeType;
+  }
+
+  for (let i = 0; i < (d.colorGrades||[]).length; i++) {
+    const cg = d.colorGrades[i];
+    if (cg.imageData && cg.imageData.startsWith('data:image'))
+      cg.imageData = await compressImage(cg.imageData, 1200, 0.72);
   }
 
   return d;
