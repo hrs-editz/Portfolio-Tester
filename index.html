@@ -526,6 +526,128 @@
   border-radius: 0 2px 2px 0 !important;
 }
 
+/* ── LAYOUT PICKER MODAL ── */
+#layout-pick-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+}
+#layout-pick-modal.open { display: flex; }
+.lpm-box {
+  background: #111;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 2rem 2.2rem 1.8rem;
+  max-width: 440px;
+  width: 90vw;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  animation: lpm-in 0.22s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes lpm-in {
+  from { opacity:0; transform:scale(0.93) translateY(10px); }
+  to   { opacity:1; transform:scale(1) translateY(0); }
+}
+.lpm-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--accent, #e8c547);
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+.lpm-sub {
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.75);
+  margin-bottom: 1.6rem;
+  line-height: 1.5;
+}
+.lpm-options {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.lpm-opt {
+  flex: 1;
+  cursor: pointer;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  padding: 1.1rem 0.8rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255,255,255,0.02);
+  transition: border-color 0.18s, background 0.18s, transform 0.15s;
+  user-select: none;
+}
+.lpm-opt:hover {
+  border-color: rgba(232,197,71,0.55);
+  background: rgba(232,197,71,0.06);
+  transform: translateY(-2px);
+}
+.lpm-opt.selected {
+  border-color: var(--accent, #e8c547);
+  background: rgba(232,197,71,0.1);
+}
+.lpm-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lpm-opt-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--muted, #888);
+  text-align: center;
+  line-height: 1.4;
+}
+.lpm-opt.selected .lpm-opt-label { color: var(--accent, #e8c547); }
+.lpm-opt-ratio {
+  font-size: 0.62rem;
+  opacity: 0.6;
+  display: block;
+  margin-top: 0.1rem;
+}
+.lpm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+.lpm-btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--muted, #888);
+  padding: 0.55rem 1.1rem;
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.lpm-btn-cancel:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+.lpm-btn-confirm {
+  background: var(--accent, #e8c547);
+  border: none;
+  color: #000;
+  padding: 0.55rem 1.5rem;
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: background 0.15s, transform 0.12s;
+}
+.lpm-btn-confirm:hover { background: #f5d76e; transform: translateY(-1px); }
+
 /* ── SCROLL TO TOP BUTTON — hidden by default, shown near bottom ── */
 #scroll-top-btn {
   position: fixed !important;
@@ -1564,6 +1686,53 @@
     <polyline class="stt-arrow" points="3,12 9,5 15,12"/>
   </svg>
 </button>
+
+<!-- LAYOUT PICKER MODAL (shown on every photo upload for Color Grade & Design Work) -->
+<div id="layout-pick-modal">
+  <div class="lpm-box">
+    <div class="lpm-title" id="lpm-title">📐 Choose Layout</div>
+    <div class="lpm-sub" id="lpm-sub">How should this photo be displayed in the gallery?</div>
+    <div class="lpm-options">
+
+      <!-- LANDSCAPE -->
+      <div class="lpm-opt selected" id="lpm-opt-landscape" onclick="lpmSelect('landscape')">
+        <div class="lpm-icon">
+          <svg width="72" height="46" viewBox="0 0 72 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1.5" y="1.5" width="69" height="43" rx="4" stroke="currentColor" stroke-width="2"/>
+            <line x1="36" y1="1.5" x2="36" y2="44.5" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+            <text x="11" y="27" font-size="8" fill="currentColor" font-family="monospace" opacity="0.65">BEF</text>
+            <text x="42" y="27" font-size="8" fill="currentColor" font-family="monospace" opacity="0.65">AFT</text>
+          </svg>
+        </div>
+        <div class="lpm-opt-label">
+          Landscape
+          <span class="lpm-opt-ratio">16 : 9  ·  Wide</span>
+        </div>
+      </div>
+
+      <!-- PORTRAIT -->
+      <div class="lpm-opt" id="lpm-opt-portrait" onclick="lpmSelect('portrait')">
+        <div class="lpm-icon">
+          <svg width="46" height="72" viewBox="0 0 46 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1.5" y="1.5" width="43" height="69" rx="4" stroke="currentColor" stroke-width="2"/>
+            <line x1="1.5" y1="36" x2="44.5" y2="36" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+            <text x="13" y="24" font-size="7" fill="currentColor" font-family="monospace" opacity="0.65">BEF</text>
+            <text x="13" y="55" font-size="7" fill="currentColor" font-family="monospace" opacity="0.65">AFT</text>
+          </svg>
+        </div>
+        <div class="lpm-opt-label">
+          Portrait
+          <span class="lpm-opt-ratio">9 : 16  ·  Tall</span>
+        </div>
+      </div>
+
+    </div>
+    <div class="lpm-actions">
+      <button class="lpm-btn-cancel" onclick="lpmCancel()">Cancel</button>
+      <button class="lpm-btn-confirm" onclick="lpmConfirm()">Use This Layout ✓</button>
+    </div>
+  </div>
+</div>
 
 <!-- COLOR GRADE LIGHTBOX -->
 <div id="cg-lightbox" onclick="cgLightboxBgClick(event)">
