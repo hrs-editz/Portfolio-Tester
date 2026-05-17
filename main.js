@@ -1569,16 +1569,22 @@ document.addEventListener('keydown', function(e) {
       progressBar.style.setProperty('width', pct.toFixed(2) + '%', 'important');
     }
 
-    // Scroll-to-top: show when 85% or more scrolled (near bottom)
+    // Scroll-to-top: show when scrolled 2% or more
     if (scrollBtn) {
       if (pct >= 2) {
-        // Remove inline style so CSS class takes over
-        scrollBtn.style.removeProperty('opacity');
-        scrollBtn.style.removeProperty('visibility');
-        scrollBtn.style.removeProperty('pointer-events');
-        scrollBtn.classList.add('stt-visible');
+        scrollBtn.style.cssText = scrollBtn.style.cssText
+          .replace(/opacity\s*:[^;]+;?/gi, '')
+          .replace(/visibility\s*:[^;]+;?/gi, '')
+          .replace(/pointer-events\s*:[^;]+;?/gi, '');
+        scrollBtn.style.setProperty('opacity',        '1',    'important');
+        scrollBtn.style.setProperty('visibility',     'visible', 'important');
+        scrollBtn.style.setProperty('pointer-events', 'all',  'important');
+        scrollBtn.style.setProperty('transform',      'translateY(0)', 'important');
       } else {
-        scrollBtn.classList.remove('stt-visible');
+        scrollBtn.style.setProperty('opacity',        '0',      'important');
+        scrollBtn.style.setProperty('visibility',     'hidden', 'important');
+        scrollBtn.style.setProperty('pointer-events', 'none',   'important');
+        scrollBtn.style.setProperty('transform',      'translateY(14px)', 'important');
       }
     }
   }
