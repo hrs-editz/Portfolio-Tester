@@ -181,7 +181,7 @@ function render() {
     var hasAfter  = cg.afterData  && cg.afterData.length > 100;
     var sliderHtml = '';
     if (hasBefore || hasAfter) {
-      sliderHtml = '<div class="cg-slider-wrap" id="cg-slider-' + i + '" data-cg-idx="' + i + '">' +
+      sliderHtml = '<div class="cg-slider-wrap" id="cg-slider-' + i + '">' +
         (hasAfter  ? '<img class="cg-img-after"  src="' + cg.afterData  + '" alt="After">'  : '') +
         (hasBefore ? '<img class="cg-img-before" src="' + cg.beforeData + '" alt="Before">' : '') +
         '<div class="cg-divider-line" id="cg-line-' + i + '"></div>' +
@@ -190,7 +190,6 @@ function render() {
         '</div>' +
         '<span class="cg-label-before">BEFORE</span>' +
         '<span class="cg-label-after">AFTER</span>' +
-        '<span class="cg-expand-hint">⛶ TAP TO EXPAND</span>' +
         '</div>';
     } else {
       sliderHtml = '<div class="cg-placeholder">🎨<span>Upload Before &amp; After images in admin panel</span></div>';
@@ -205,7 +204,35 @@ function render() {
   }).join(''));
 
   // Init sliders + layout after DOM update
-  setTimeout(function() { initColorGradeSliders(); applyColorGradeLayoutClass(); }, 50);
+  setTimeout(function() { initColorGradeSliders(); applyColorGradeLayoutClass(); applyDesignWorkLayoutClass(); }, 50);
+
+  // DESIGN WORK
+  var dwData = DATA.designWork || [];
+  var dwSection = document.getElementById('designwork');
+  var dwNavLink  = document.getElementById('nav-dw-link');
+  var dwDrawerLink = document.getElementById('drawer-dw-link');
+  if (dwSection) dwSection.style.display = dwData.length === 0 ? 'none' : '';
+  if (dwNavLink)    dwNavLink.style.display    = dwData.length === 0 ? 'none' : '';
+  if (dwDrawerLink) dwDrawerLink.style.display = dwData.length === 0 ? 'none' : '';
+  var dwLayout = DATA.dwLayout || 'landscape';
+  setHTML('designwork-container', dwData.map(function(dw, i) {
+    var hasPoster = dw.posterData && dw.posterData.length > 100;
+    var badgeClass = dwLayout === 'portrait' ? 'portrait' : 'landscape';
+    var badgeText  = dwLayout === 'portrait' ? '9:16' : '16:9';
+    var posterHtml = hasPoster
+      ? '<img src="' + dw.posterData + '" alt="' + (dw.title||'Poster') + '">'
+      : '<div class="dw-poster-placeholder">🖼️<span>Upload poster in admin panel</span></div>';
+    var tagsHtml = (dw.tags||[]).map(function(t){ return '<span class="dw-tag">' + t + '</span>'; }).join('');
+    return '<div class="dw-card">' +
+      '<div class="dw-poster-wrap">' +
+        posterHtml +
+        '<span class="dw-poster-badge ' + badgeClass + '">' + badgeText + '</span>' +
+      '</div>' +
+      (dw.title ? '<div class="dw-card-title">' + dw.title + '</div>' : '') +
+      (dw.desc  ? '<div class="dw-card-desc">'  + dw.desc  + '</div>' : '') +
+      (tagsHtml ? '<div class="dw-tags">' + tagsHtml + '</div>' : '') +
+      '</div>';
+  }).join(''));
 }
 
 /* ── COLOR GRADE SLIDER ── */
@@ -233,129 +260,25 @@ function initColorGradeSliders() {
       setPos(pct);
     }
 
-    // Mouse — drag to slide, short click to open lightbox
-    var mouseDownX = 0, mouseMoved = false;
+    // Mouse
     wrap.addEventListener('mousedown', function(e) {
       e.preventDefault();
-      mouseDownX = e.clientX;
-      mouseMoved = false;
       onMove(e.clientX);
-      function mm(ev) { if (Math.abs(ev.clientX - mouseDownX) > 4) mouseMoved = true; onMove(ev.clientX); }
-      function mu() {
-        document.removeEventListener('mousemove', mm);
-        document.removeEventListener('mouseup', mu);
-        if (!mouseMoved) openCGLightbox(i);
-      }
+      function mm(ev) { onMove(ev.clientX); }
+      function mu() { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }
       document.addEventListener('mousemove', mm);
       document.addEventListener('mouseup', mu);
     });
 
-    // Touch — drag to slide, short tap to open lightbox
-    var touchStartX = 0, touchMoved = false;
+    // Touch
     wrap.addEventListener('touchstart', function(e) {
-      touchStartX = e.touches[0].clientX;
-      touchMoved = false;
       onMove(e.touches[0].clientX);
     }, {passive: true});
     wrap.addEventListener('touchmove', function(e) {
-      if (Math.abs(e.touches[0].clientX - touchStartX) > 8) touchMoved = true;
       onMove(e.touches[0].clientX);
-    }, {passive: true});
-    wrap.addEventListener('touchend', function() {
-      if (!touchMoved) openCGLightbox(i);
     }, {passive: true});
   });
 }
-
-/* ── COLOR GRADE LIGHTBOX ── */
-function openCGLightbox(i) {
-  var cgData = DATA.colorGrades || [];
-  var cg = cgData[i];
-  if (!cg) return;
-  var hasBefore = cg.beforeData && cg.beforeData.length > 100;
-  var hasAfter  = cg.afterData  && cg.afterData.length > 100;
-  if (!hasBefore && !hasAfter) return;
-
-  var lb      = document.getElementById('cg-lightbox');
-  var slider  = document.getElementById('cg-lightbox-slider');
-  var lbBefore = document.getElementById('cg-lb-before');
-  var lbAfter  = document.getElementById('cg-lb-after');
-  var lbLine   = document.getElementById('cg-lb-line');
-  var lbHandle = document.getElementById('cg-lb-handle');
-  var lbMeta   = document.getElementById('cg-lb-meta');
-  if (!lb || !slider || !lbBefore || !lbAfter) return;
-
-  // Set images
-  lbBefore.src = hasBefore ? cg.beforeData : '';
-  lbAfter.src  = hasAfter  ? cg.afterData  : '';
-  lbBefore.style.display = hasBefore ? 'block' : 'none';
-  lbAfter.style.display  = hasAfter  ? 'block' : 'none';
-
-  // Set aspect ratio from layout
-  var isPortrait = (DATA.cgLayout === 'portrait');
-  slider.style.aspectRatio = isPortrait ? '9/16' : '16/9';
-  slider.style.maxHeight   = isPortrait ? '80vh' : 'calc(88vh - 60px)';
-  slider.style.margin      = '0 auto';
-
-  // Meta
-  lbMeta.textContent = cg.title ? cg.title.toUpperCase() : '';
-
-  // Reset slider to 50%
-  var pct = 50;
-  function setLbPos(p) {
-    p = Math.max(2, Math.min(98, p));
-    pct = p;
-    lbBefore.style.clipPath = 'inset(0 ' + (100 - p) + '% 0 0)';
-    lbLine.style.left   = p + '%';
-    lbHandle.style.left = p + '%';
-  }
-  setLbPos(50);
-
-  // Show
-  lb.classList.add('open');
-  document.body.style.overflow = 'hidden';
-
-  // Slider drag in lightbox
-  function lbMove(clientX) {
-    var rect = slider.getBoundingClientRect();
-    setLbPos(((clientX - rect.left) / rect.width) * 100);
-  }
-  function lbMouseDown(e) {
-    e.preventDefault();
-    lbMove(e.clientX);
-    function mm(ev) { lbMove(ev.clientX); }
-    function mu() { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }
-    document.addEventListener('mousemove', mm);
-    document.addEventListener('mouseup', mu);
-  }
-  function lbTouchMove(e) { lbMove(e.touches[0].clientX); }
-  slider.addEventListener('mousedown', lbMouseDown);
-  slider.addEventListener('touchstart', function(e){ lbMove(e.touches[0].clientX); }, {passive:true});
-  slider.addEventListener('touchmove', lbTouchMove, {passive:true});
-
-  // Store cleanup
-  lb._cleanup = function() {
-    slider.removeEventListener('mousedown', lbMouseDown);
-    slider.removeEventListener('touchmove', lbTouchMove);
-  };
-}
-
-function closeCGLightbox() {
-  var lb = document.getElementById('cg-lightbox');
-  if (!lb) return;
-  lb.classList.remove('open');
-  document.body.style.overflow = '';
-  if (lb._cleanup) { lb._cleanup(); lb._cleanup = null; }
-}
-
-// Close lightbox on Escape key
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeCGLightbox();
-});
-// Close on backdrop click
-document.getElementById('cg-lightbox') && document.getElementById('cg-lightbox').addEventListener('click', function(e) {
-  if (e.target === this) closeCGLightbox();
-});
 
 /* ── COLOR GRADE ADMIN EDITOR ── */
 function renderColorGradeEditor() {
@@ -461,6 +384,90 @@ function applyColorGradeLayoutClass() {
   // Sync radio buttons
   var radios = document.querySelectorAll('input[name="cg-layout"]');
   radios.forEach(function(r) { r.checked = (r.value === layout); });
+}
+
+/* ── DESIGN WORK ── */
+function applyDWLayout(val) {
+  DATA.dwLayout = val || 'landscape';
+  applyDesignWorkLayoutClass();
+  var bar = document.getElementById('dw-layout-preview-bar');
+  if (bar) bar.style.display = 'block';
+  render();
+}
+
+function applyDesignWorkLayoutClass() {
+  var grid = document.getElementById('designwork-container');
+  if (!grid) return;
+  var layout = DATA.dwLayout || 'landscape';
+  grid.className = 'dw-grid fade-up';
+  if (layout === 'portrait') grid.classList.add('dw-layout-portrait');
+  // Sync radio buttons
+  var radios = document.querySelectorAll('input[name="dw-layout"]');
+  radios.forEach(function(r) { r.checked = (r.value === layout); });
+}
+
+function renderDesignWorkEditor() {
+  var c = document.getElementById('designwork-editor');
+  if (!c) return;
+  c.innerHTML = '';
+  var dwData = DATA.designWork || [];
+  var layout = DATA.dwLayout || 'landscape';
+  dwData.forEach(function(dw, i) {
+    var hasPoster = dw.posterData && dw.posterData.length > 100;
+    var isPortrait = layout === 'portrait';
+    c.innerHTML +=
+      '<div class="admin-card" id="dw-card-' + i + '">' +
+      '<div class="admin-card-header">' +
+      '<span class="admin-card-title">Poster ' + (i+1) + ': ' + (dw.title||'Untitled') + '</span>' +
+      '<button class="admin-btn-remove" onclick="removeDesignWork(' + i + ')">Remove</button>' +
+      '</div>' +
+
+      // Upload box
+      '<div style="margin-bottom:1rem;">' +
+      '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;letter-spacing:0.04em;">POSTER IMAGE (' + (isPortrait ? '9:16 Portrait' : '16:9 Landscape') + ')</div>' +
+      '<div class="dw-upload-box' + (isPortrait ? ' portrait-preview' : '') + (hasPoster ? ' has-img' : '') + '" onclick="document.getElementById(\'dw-poster-' + i + '\').click()" id="dw-poster-box-' + i + '" style="' + (isPortrait ? 'max-width:180px;' : '') + '">' +
+      (hasPoster ? '<img src="' + dw.posterData + '" alt="Poster">' : '') +
+      '<span class="dw-upload-label">' + (hasPoster ? '✅ Click to replace' : '🖼️ Click to upload poster') + '</span>' +
+      '</div>' +
+      '<input type="file" id="dw-poster-' + i + '" accept="image/*" style="display:none" onchange="handleDWFile(event,' + i + ')">' +
+      '</div>' +
+
+      '<div class="form-row">' +
+      '<div class="form-group"><label>Title</label><input type="text" id="dw-title-' + i + '" value="' + (dw.title||'') + '" placeholder="e.g. Event Night Poster"></div>' +
+      '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="dw-tags-' + i + '" value="' + (dw.tags||[]).join(', ') + '" placeholder="Photoshop, Brand, Event"></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Description (optional)</label><textarea id="dw-desc-' + i + '" rows="2" placeholder="Describe the design, client, or concept...">' + (dw.desc||'') + '</textarea></div>' +
+
+      '</div>';
+  });
+}
+
+function handleDWFile(event, i) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    if (!DATA.designWork) DATA.designWork = [];
+    DATA.designWork[i].posterData = e.target.result;
+    renderDesignWorkEditor();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeDesignWork(i) {
+  if (!DATA.designWork) return;
+  DATA.designWork.splice(i, 1);
+  renderDesignWorkEditor();
+}
+
+function addDesignWork() {
+  if (!DATA.designWork) DATA.designWork = [];
+  DATA.designWork.push({ title: 'New Poster', desc: '', tags: [], posterData: '' });
+  renderDesignWorkEditor();
+  setTimeout(function() {
+    var cards = document.querySelectorAll('#designwork-editor .admin-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({ behavior: 'smooth' });
+  }, 100);
 }
 
 // Migrate old before/after video data to single driveUrl
@@ -693,6 +700,11 @@ function populateAdmin() {
   var savedLayout = DATA.cgLayout || 'landscape';
   var radios = document.querySelectorAll('input[name="cg-layout"]');
   radios.forEach(function(r) { r.checked = (r.value === savedLayout); });
+  // Render Design Work editor and restore layout
+  renderDesignWorkEditor();
+  var savedDWLayout = DATA.dwLayout || 'landscape';
+  var dwRadios = document.querySelectorAll('input[name="dw-layout"]');
+  dwRadios.forEach(function(r) { r.checked = (r.value === savedDWLayout); });
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
 }
 
@@ -870,6 +882,10 @@ function applyChanges() {
   var checkedLayout = document.querySelector('input[name="cg-layout"]:checked');
   DATA.cgLayout = (checkedLayout ? checkedLayout.value : null) || DATA.cgLayout || 'landscape';
 
+  // Save Design Work layout choice
+  var checkedDWLayout = document.querySelector('input[name="dw-layout"]:checked');
+  DATA.dwLayout = (checkedDWLayout ? checkedDWLayout.value : null) || DATA.dwLayout || 'landscape';
+
   DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
     return {
       title:      get('cg-title-' + i) || cg.title || '',
@@ -877,6 +893,15 @@ function applyChanges() {
       tags:       (get('cg-tags-' + i)||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
       beforeData: cg.beforeData || '',
       afterData:  cg.afterData  || ''
+    };
+  });
+
+  DATA.designWork = (DATA.designWork || []).map(function(dw, i) {
+    return {
+      title:      get('dw-title-' + i) || dw.title || '',
+      desc:       get('dw-desc-'  + i) || '',
+      tags:       (get('dw-tags-' + i)||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
+      posterData: dw.posterData || ''
     };
   });
 
@@ -992,6 +1017,12 @@ async function compressDataImages(data) {
       cg.beforeData = await compressImage(cg.beforeData, 900, 0.72);
     if (cg.afterData && cg.afterData.startsWith('data:image'))
       cg.afterData = await compressImage(cg.afterData, 900, 0.72);
+  }
+
+  for (let i = 0; i < (d.designWork||[]).length; i++) {
+    const dw = d.designWork[i];
+    if (dw.posterData && dw.posterData.startsWith('data:image'))
+      dw.posterData = await compressImage(dw.posterData, 1200, 0.78);
   }
 
   return d;
