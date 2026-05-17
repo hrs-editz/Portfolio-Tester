@@ -378,13 +378,27 @@ function handleCGFile(event, i, side) {
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    if (!DATA.colorGrades) DATA.colorGrades = [];
-    if (side === 'before') {
-      DATA.colorGrades[i].beforeData = e.target.result;
-    } else {
-      DATA.colorGrades[i].afterData = e.target.result;
-    }
-    renderColorGradeEditor();
+    var imgData = e.target.result;
+    var sideLabel = side === 'before' ? 'BEFORE (Raw)' : 'AFTER (Graded)';
+    showLayoutModal(
+      '🎨 Color Grade — ' + sideLabel + ' Photo',
+      'How should this photo be displayed in the <strong>Color Grade</strong> gallery?',
+      DATA.cgLayout || 'landscape',
+      function(chosenLayout) {
+        DATA.cgLayout = chosenLayout;
+        applyColorGradeLayoutClass();
+        if (!DATA.colorGrades) DATA.colorGrades = [];
+        if (side === 'before') {
+          DATA.colorGrades[i].beforeData = imgData;
+        } else {
+          DATA.colorGrades[i].afterData = imgData;
+        }
+        renderColorGradeEditor();
+        render();
+        var bar = document.getElementById('cg-layout-preview-bar');
+        if (bar) bar.style.display = 'block';
+      }
+    );
   };
   reader.readAsDataURL(file);
 }
@@ -488,9 +502,22 @@ function handleDWFile(event, i) {
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function(e) {
-    if (!DATA.designWork) DATA.designWork = [];
-    DATA.designWork[i].posterData = e.target.result;
-    renderDesignWorkEditor();
+    var imgData = e.target.result;
+    showLayoutModal(
+      '🖼 Design Work — Poster Photo',
+      'How should this poster be displayed in the <strong>Design Work</strong> gallery?',
+      DATA.dwLayout || 'landscape',
+      function(chosenLayout) {
+        DATA.dwLayout = chosenLayout;
+        applyDesignWorkLayoutClass();
+        if (!DATA.designWork) DATA.designWork = [];
+        DATA.designWork[i].posterData = imgData;
+        renderDesignWorkEditor();
+        render();
+        var bar = document.getElementById('dw-layout-preview-bar');
+        if (bar) bar.style.display = 'block';
+      }
+    );
   };
   reader.readAsDataURL(file);
 }
@@ -1577,6 +1604,53 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeCGLightbox();
   if (e.key === 'ArrowLeft')  cgLightboxNav(-1);
   if (e.key === 'ArrowRight') cgLightboxNav(1);
+});
+
+
+/* ================================================================
+   LAYOUT PICKER MODAL -- shown on every CG / DW photo upload
+================================================================ */
+var _lpmCallback = null;
+var _lpmSelected = 'landscape';
+
+function showLayoutModal(title, sub, currentLayout, callback) {
+  _lpmCallback = callback;
+  _lpmSelected = currentLayout || 'landscape';
+  var titleEl = document.getElementById('lpm-title');
+  var subEl   = document.getElementById('lpm-sub');
+  if (titleEl) titleEl.textContent = title;
+  if (subEl)   subEl.innerHTML    = sub;
+  lpmSelect(_lpmSelected);
+  document.getElementById('layout-pick-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function lpmSelect(val) {
+  _lpmSelected = val;
+  var ls = document.getElementById('lpm-opt-landscape');
+  var ps = document.getElementById('lpm-opt-portrait');
+  if (ls) ls.classList.toggle('selected', val === 'landscape');
+  if (ps) ps.classList.toggle('selected', val === 'portrait');
+}
+
+function lpmConfirm() {
+  document.getElementById('layout-pick-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  if (typeof _lpmCallback === 'function') _lpmCallback(_lpmSelected);
+  _lpmCallback = null;
+}
+
+function lpmCancel() {
+  document.getElementById('layout-pick-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  _lpmCallback = null;
+}
+
+document.addEventListener('keydown', function(e) {
+  var m = document.getElementById('layout-pick-modal');
+  if (!m || !m.classList.contains('open')) return;
+  if (e.key === 'Escape') lpmCancel();
+  if (e.key === 'Enter')  lpmConfirm();
 });
 
 /* ── SCROLL PROGRESS BAR + SCROLL-TO-TOP (fully JS-injected) ── */
