@@ -1556,23 +1556,38 @@ document.addEventListener('keydown', function(e) {
   var scrollBtn   = document.getElementById('scroll-top-btn');
 
   function onScroll() {
-    var scrollTop  = window.scrollY || document.documentElement.scrollTop;
-    var docHeight  = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-    var pct        = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    var scrollTop  = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+    var docHeight  = Math.max(
+      document.body.scrollHeight, document.body.offsetHeight,
+      document.documentElement.scrollHeight, document.documentElement.offsetHeight
+    ) - window.innerHeight;
+    var pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+    pct = Math.min(100, Math.max(0, pct));
 
-    // Progress bar
-    if (progressBar) progressBar.style.width = pct.toFixed(2) + '%';
+    // Progress bar — set width directly with style attribute to bypass CSS specificity
+    if (progressBar) {
+      progressBar.style.setProperty('width', pct.toFixed(2) + '%', 'important');
+    }
 
-    // Scroll-to-top: show when 90% or more scrolled (near bottom)
+    // Scroll-to-top: show when 85% or more scrolled (near bottom)
     if (scrollBtn) {
-      if (pct >= 90) {
-        scrollBtn.classList.add('visible');
+      if (pct >= 85) {
+        // Remove inline style so CSS class takes over
+        scrollBtn.style.removeProperty('opacity');
+        scrollBtn.style.removeProperty('visibility');
+        scrollBtn.style.removeProperty('pointer-events');
+        scrollBtn.classList.add('stt-visible');
       } else {
-        scrollBtn.classList.remove('visible');
+        scrollBtn.classList.remove('stt-visible');
       }
     }
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll(); // init on load
+  // Also run on resize (viewport height changes)
+  window.addEventListener('resize', onScroll, { passive: true });
+  // Run after page fully loads
+  window.addEventListener('load', onScroll);
+  // Run immediately
+  setTimeout(onScroll, 100);
 })();
