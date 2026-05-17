@@ -225,19 +225,17 @@ function render() {
   if (dwSection) dwSection.style.display = dwData.length === 0 ? 'none' : '';
   if (dwNavLink)    dwNavLink.style.display    = dwData.length === 0 ? 'none' : '';
   if (dwDrawerLink) dwDrawerLink.style.display = dwData.length === 0 ? 'none' : '';
-  var dwLayout = DATA.dwLayout || 'landscape'; // kept for grid-level class fallback
+  var dwLayout = DATA.dwLayout || 'landscape';
   setHTML('designwork-container', dwData.map(function(dw, i) {
-    var hasPoster   = dw.posterData && dw.posterData.length > 100;
-    var itemLayout  = dw.layout || dwLayout; // per-photo layout, falls back to global
-    var badgeClass  = itemLayout === 'portrait' ? 'portrait' : 'landscape';
-    var badgeText   = itemLayout === 'portrait' ? '9:16' : '16:9';
+    var hasPoster = dw.posterData && dw.posterData.length > 100;
+    var badgeClass = dwLayout === 'portrait' ? 'portrait' : 'landscape';
+    var badgeText  = dwLayout === 'portrait' ? '9:16' : '16:9';
     var posterHtml = hasPoster
       ? '<img src="' + dw.posterData + '" alt="' + (dw.title||'Poster') + '">'
       : '<div class="dw-poster-placeholder">🖼️<span>Upload poster in admin panel</span></div>';
     var tagsHtml = (dw.tags||[]).map(function(t){ return '<span class="dw-tag">' + t + '</span>'; }).join('');
     var clickAttr = hasPoster ? ' onclick="openDWLightbox(' + i + ')"' : '';
-    var cardClass = 'dw-card' + (itemLayout === 'portrait' ? ' dw-card-portrait' : ' dw-card-landscape');
-    return '<div class="' + cardClass + '"' + clickAttr + (hasPoster ? '' : ' style="cursor:default;"') + '>' +
+    return '<div class="dw-card"' + clickAttr + (hasPoster ? '' : ' style="cursor:default;"') + '>' +
       '<div class="dw-poster-wrap">' +
         posterHtml +
         '<span class="dw-poster-badge ' + badgeClass + '">' + badgeText + '</span>' +
@@ -299,24 +297,52 @@ function renderColorGradeEditor() {
   var c = document.getElementById('colorgrade-editor');
   if (!c) return;
   c.innerHTML = '';
-  var cgData = DATA.colorGrades || [];
+  var cgData  = DATA.colorGrades || [];
+  var layout  = DATA.cgLayout || 'landscape';
+  var isPortrait = layout === 'portrait';
+  var layoutLabel = isPortrait ? '9:16 Portrait' : '16:9 Landscape';
+  // Portrait upload boxes are narrower; landscape fills the row
+  var uploadBoxStyle = isPortrait
+    ? 'max-width:160px;aspect-ratio:9/16;'
+    : 'aspect-ratio:16/9;';
+  var uploadRowStyle = isPortrait
+    ? 'display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.5rem;'
+    : 'display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:0.5rem;';
+
   cgData.forEach(function(cg, i) {
     var hasBefore = cg.beforeData && cg.beforeData.length > 100;
     var hasAfter  = cg.afterData  && cg.afterData.length > 100;
+
+    // Layout badge shown in the card header
+    var layoutBadge =
+      '<span style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:0.06em;' +
+      'padding:0.18rem 0.55rem;border-radius:2px;margin-left:0.6rem;' +
+      (isPortrait
+        ? 'background:rgba(232,197,71,0.15);color:var(--accent);border:1px solid rgba(232,197,71,0.3);'
+        : 'background:rgba(255,255,255,0.05);color:var(--muted);border:1px solid var(--border);') +
+      '">' + (isPortrait ? '▯ 9:16' : '▭ 16:9') + '</span>';
+
     c.innerHTML +=
       '<div class="admin-card" id="cg-card-' + i + '">' +
       '<div class="admin-card-header">' +
-      '<span class="admin-card-title">Grade ' + (i+1) + ': ' + (cg.title||'Untitled') + '</span>' +
+      '<span class="admin-card-title">Grade ' + (i+1) + ': ' + (cg.title||'Untitled') + layoutBadge + '</span>' +
       '<button class="admin-btn-remove" onclick="removeColorGrade(' + i + ')">Remove</button>' +
       '</div>' +
 
-      // Upload row
-      '<div class="cg-upload-row">' +
+      // Orientation hint
+      '<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);margin-bottom:0.8rem;' +
+      'padding:0.45rem 0.8rem;background:rgba(255,255,255,0.03);border-left:2px solid ' +
+      (isPortrait ? 'var(--accent)' : 'rgba(255,255,255,0.12)') + ';border-radius:0 3px 3px 0;">' +
+      '📐 Upload images in <strong style="color:' + (isPortrait ? 'var(--accent)' : '#fff') + ';">' + layoutLabel + '</strong> orientation for best results.' +
+      '</div>' +
+
+      // Upload row — flex for portrait, grid for landscape
+      '<div style="' + uploadRowStyle + '">' +
 
       // BEFORE box
       '<div>' +
       '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.4rem;letter-spacing:0.04em;">BEFORE (Raw)</div>' +
-      '<div class="cg-upload-box' + (hasBefore ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-before-' + i + '\').click()" id="cg-before-box-' + i + '">' +
+      '<div class="cg-upload-box' + (hasBefore ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-before-' + i + '\').click()" id="cg-before-box-' + i + '" style="' + uploadBoxStyle + '">' +
       (hasBefore ? '<img src="' + cg.beforeData + '" alt="Before">' : '') +
       '<span class="cg-upload-tag before">BEFORE</span>' +
       '<span class="cg-upload-label">' + (hasBefore ? '✅ Click to replace' : '🖼️ Click to upload') + '</span>' +
@@ -327,7 +353,7 @@ function renderColorGradeEditor() {
       // AFTER box
       '<div>' +
       '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.4rem;letter-spacing:0.04em;">AFTER (Graded)</div>' +
-      '<div class="cg-upload-box' + (hasAfter ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-after-' + i + '\').click()" id="cg-after-box-' + i + '">' +
+      '<div class="cg-upload-box' + (hasAfter ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-after-' + i + '\').click()" id="cg-after-box-' + i + '" style="' + uploadBoxStyle + '">' +
       (hasAfter ? '<img src="' + cg.afterData + '" alt="After">' : '') +
       '<span class="cg-upload-tag after">AFTER</span>' +
       '<span class="cg-upload-label">' + (hasAfter ? '✅ Click to replace' : '🎨 Click to upload') + '</span>' +
@@ -383,6 +409,7 @@ function addColorGrade() {
 function applyCGLayout(val) {
   DATA.cgLayout = val || 'landscape';
   applyColorGradeLayoutClass();
+  renderColorGradeEditor(); // refresh upload-box aspect ratios + badges
   var bar = document.getElementById('cg-layout-preview-bar');
   if (bar) bar.style.display = 'block';
   render();
@@ -425,10 +452,10 @@ function renderDesignWorkEditor() {
   if (!c) return;
   c.innerHTML = '';
   var dwData = DATA.designWork || [];
+  var layout = DATA.dwLayout || 'landscape';
   dwData.forEach(function(dw, i) {
-    var hasPoster  = dw.posterData && dw.posterData.length > 100;
-    var itemLayout = dw.layout || 'landscape';
-    var isPortrait = itemLayout === 'portrait';
+    var hasPoster = dw.posterData && dw.posterData.length > 100;
+    var isPortrait = layout === 'portrait';
     c.innerHTML +=
       '<div class="admin-card" id="dw-card-' + i + '">' +
       '<div class="admin-card-header">' +
@@ -436,16 +463,7 @@ function renderDesignWorkEditor() {
       '<button class="admin-btn-remove" onclick="removeDesignWork(' + i + ')">Remove</button>' +
       '</div>' +
 
-      // ── PER-PHOTO LAYOUT SELECT (same style as video type dropdown) ──
-      '<div class="form-group" style="margin-bottom:1rem;">' +
-      '<label>📐 Photo Layout</label>' +
-      '<select id="dw-layout-' + i + '" onchange="onDWLayoutChange(' + i + ',this.value)" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
-      '<option value="landscape"' + (itemLayout === 'landscape' ? ' selected' : '') + '>🖼️ Landscape (16:9)</option>' +
-      '<option value="portrait"'  + (itemLayout === 'portrait'  ? ' selected' : '') + '>📱 Portrait (9:16)</option>' +
-      '</select>' +
-      '</div>' +
-
-      // Upload box — aspect ratio reacts to per-photo layout
+      // Upload box
       '<div style="margin-bottom:1rem;">' +
       '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;letter-spacing:0.04em;">POSTER IMAGE (' + (isPortrait ? '9:16 Portrait' : '16:9 Landscape') + ')</div>' +
       '<div class="dw-upload-box' + (isPortrait ? ' portrait-preview' : '') + (hasPoster ? ' has-img' : '') + '" onclick="document.getElementById(\'dw-poster-' + i + '\').click()" id="dw-poster-box-' + i + '" style="' + (isPortrait ? 'max-width:180px;' : '') + '">' +
@@ -463,18 +481,6 @@ function renderDesignWorkEditor() {
 
       '</div>';
   });
-}
-
-/* Instantly update layout label + upload box shape when dropdown changes */
-function onDWLayoutChange(i, val) {
-  if (!DATA.designWork || !DATA.designWork[i]) return;
-  DATA.designWork[i].layout = val;
-  renderDesignWorkEditor();
-  // Scroll back to the card after re-render
-  setTimeout(function() {
-    var card = document.getElementById('dw-card-' + i);
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 80);
 }
 
 function handleDWFile(event, i) {
@@ -497,7 +503,7 @@ function removeDesignWork(i) {
 
 function addDesignWork() {
   if (!DATA.designWork) DATA.designWork = [];
-  DATA.designWork.push({ title: 'New Poster', desc: '', tags: [], posterData: '', layout: 'landscape' });
+  DATA.designWork.push({ title: 'New Poster', desc: '', tags: [], posterData: '' });
   renderDesignWorkEditor();
   setTimeout(function() {
     var cards = document.querySelectorAll('#designwork-editor .admin-card');
@@ -940,13 +946,11 @@ function applyChanges() {
   });
 
   DATA.designWork = (DATA.designWork || []).map(function(dw, i) {
-    var sel = document.getElementById('dw-layout-' + i);
     return {
       title:      get('dw-title-' + i) || dw.title || '',
       desc:       get('dw-desc-'  + i) || '',
       tags:       (get('dw-tags-' + i)||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
-      posterData: dw.posterData || '',
-      layout:     (sel ? sel.value : null) || dw.layout || 'landscape'
+      posterData: dw.posterData || ''
     };
   });
 
