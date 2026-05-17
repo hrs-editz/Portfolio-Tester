@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css">
 <style>
 /* ── COLOR GRADE SECTION ── */
-#colorgrade { padding: 5rem 0; overflow: visible; }
+#colorgrade { overflow: visible; }
 .colorgrade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -218,7 +218,7 @@
 }
 
 /* ── DESIGN WORK SECTION ── */
-#designwork { padding: 5rem 0; overflow: visible; }
+#designwork { overflow: visible; }
 .dw-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -334,6 +334,84 @@
   .dw-grid { grid-template-columns: 1fr; }
   .dw-grid.dw-layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 }
+
+/* ── DESIGN WORK LIGHTBOX ── */
+#dw-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0,0,0,0.93);
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+#dw-lightbox.open { display: flex; }
+#dw-lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 3px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.85);
+  cursor: default;
+  display: block;
+  animation: dw-lb-in 0.2s cubic-bezier(0.22,1,0.36,1);
+}
+@keyframes dw-lb-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+#dw-lightbox-close {
+  position: absolute;
+  top: 1.1rem; right: 1.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.13);
+  color: #fff;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  z-index: 2;
+}
+#dw-lightbox-close:hover { background: rgba(232,197,71,0.15); border-color: rgba(232,197,71,0.45); color: var(--accent); }
+#dw-lightbox-caption {
+  position: absolute;
+  bottom: 1.3rem;
+  left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4);
+  white-space: nowrap;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+#dw-lightbox-nav-prev,
+#dw-lightbox-nav-next {
+  position: absolute;
+  top: 50%; transform: translateY(-50%);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  z-index: 2;
+  user-select: none;
+}
+#dw-lightbox-nav-prev { left: 1.2rem; }
+#dw-lightbox-nav-next { right: 1.2rem; }
+#dw-lightbox-nav-prev:hover,
+#dw-lightbox-nav-next:hover { background: rgba(232,197,71,0.15); border-color: rgba(232,197,71,0.4); color: var(--accent); }
+.dw-card { cursor: zoom-in; }
 </style></head>
 <body>
 
@@ -990,6 +1068,15 @@
     </a>
 
   </div>
+</div>
+
+<!-- DESIGN WORK LIGHTBOX -->
+<div id="dw-lightbox" onclick="dwLightboxBgClick(event)">
+  <button id="dw-lightbox-close" onclick="closeDWLightbox()" title="Close (Esc)">✕</button>
+  <button id="dw-lightbox-nav-prev" onclick="dwLightboxNav(-1)" title="Previous">‹</button>
+  <img id="dw-lightbox-img" src="" alt="Design Work">
+  <button id="dw-lightbox-nav-next" onclick="dwLightboxNav(1)" title="Next">›</button>
+  <div id="dw-lightbox-caption"></div>
 </div>
 
 <!-- FOOTER -->
