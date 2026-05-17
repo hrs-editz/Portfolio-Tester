@@ -1571,7 +1571,7 @@ document.addEventListener('keydown', function(e) {
 
     // Scroll-to-top: show when 85% or more scrolled (near bottom)
     if (scrollBtn) {
-      if (pct >= 85) {
+      if (pct >= 2) {
         // Remove inline style so CSS class takes over
         scrollBtn.style.removeProperty('opacity');
         scrollBtn.style.removeProperty('visibility');
