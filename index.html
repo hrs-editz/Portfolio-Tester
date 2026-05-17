@@ -12,6 +12,15 @@
 <style>
 /* ── COLOR GRADE SECTION ── */
 #colorgrade { padding: 5rem 0; overflow: visible; }
+/* Align colorgrade inner content same as other sections */
+#colorgrade > .fade-up,
+#colorgrade > .colorgrade-grid {
+  max-width: var(--max-w, 1100px);
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
 .colorgrade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -205,16 +214,26 @@
   margin-top: 2.5rem;
 }
 .colorgrade-grid .cg-slider-wrap { aspect-ratio: 16 / 9; }
-/* Portrait: 3-column grid, 9:16 slider */
+/* Portrait: auto-fit + centred — prevents single card drifting left */
 .colorgrade-grid.layout-portrait {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
   gap: 1.5rem;
+  justify-content: center;
+}
+.colorgrade-grid.layout-portrait .cg-card {
+  width: 100%;
+  max-width: 280px;
 }
 .colorgrade-grid.layout-portrait .cg-slider-wrap { aspect-ratio: 9 / 16; }
 
 @media (max-width: 700px) {
   .colorgrade-grid { grid-template-columns: 1fr; }
-  .colorgrade-grid.layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  .colorgrade-grid.layout-portrait {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    justify-content: unset;
+  }
+  .colorgrade-grid.layout-portrait .cg-card { max-width: none; }
 }
 
 /* ── FRAME FIX: video-thumb matches cg-card frame ── */
