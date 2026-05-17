@@ -199,8 +199,15 @@ function render() {
       sliderHtml = '<div class="cg-placeholder">🎨<span>Upload Before &amp; After images in admin panel</span></div>';
     }
     var tagsHtml = (cg.tags||[]).map(t => '<span class="cg-tag">' + t + '</span>').join('');
-    return '<div class="cg-card">' +
+    var hasImages = (cg.beforeData && cg.beforeData.length > 100) || (cg.afterData && cg.afterData.length > 100);
+    var fullscreenBtn = hasImages
+      ? '<button class="cg-fullscreen-btn" title="View fullscreen" onclick="openCGLightbox(' + i + ',\'after\')" style="position:absolute;top:0.6rem;left:0.6rem;z-index:7;">' +
+        '<svg viewBox="0 0 14 14"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9"/></svg>' +
+        '</button>'
+      : '';
+    return '<div class="cg-card" style="position:relative;">' +
       sliderHtml +
+      fullscreenBtn +
       (cg.title ? '<div class="cg-card-title">' + cg.title + '</div>' : '') +
       (cg.desc  ? '<div class="cg-card-desc">'  + cg.desc  + '</div>' : '') +
       (tagsHtml ? '<div class="cg-tags">' + tagsHtml + '</div>' : '') +
@@ -1481,3 +1488,91 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowLeft')  dwLightboxNav(-1);
   if (e.key === 'ArrowRight') dwLightboxNav(1);
 });
+
+/* ── COLOR GRADE LIGHTBOX ── */
+var _cgLbIdx = 0;
+var _cgLbSide = 'after'; // 'before' or 'after'
+
+function openCGLightbox(i, side) {
+  var cgData = DATA.colorGrades || [];
+  if (!cgData[i]) return;
+  _cgLbIdx = i;
+  _cgLbSide = side || 'after';
+  _updateCGLightbox();
+  document.getElementById('cg-lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function _updateCGLightbox() {
+  var cgData = DATA.colorGrades || [];
+  var cg = cgData[_cgLbIdx];
+  if (!cg) return;
+  var img = document.getElementById('cg-lightbox-img');
+  var lbl = document.getElementById('cg-lightbox-label');
+  var src = (_cgLbSide === 'before' && cg.beforeData && cg.beforeData.length > 100)
+    ? cg.beforeData
+    : (cg.afterData && cg.afterData.length > 100 ? cg.afterData : cg.beforeData);
+  img.src = src || '';
+  img.style.animation = 'none';
+  void img.offsetWidth;
+  img.style.animation = '';
+  var title = cg.title ? cg.title.toUpperCase() : 'COLOR GRADE';
+  var sideLabel = (_cgLbSide === 'before') ? 'BEFORE' : 'AFTER (GRADED)';
+  lbl.textContent = title + '  ·  ' + sideLabel + '  ·  ' + (_cgLbIdx + 1) + ' / ' + cgData.length;
+  // nav arrows
+  document.getElementById('cg-lightbox-nav-prev').style.opacity = _cgLbIdx > 0 ? '1' : '0.2';
+  document.getElementById('cg-lightbox-nav-next').style.opacity = _cgLbIdx < cgData.length - 1 ? '1' : '0.2';
+}
+
+function cgLightboxNav(dir) {
+  var cgData = DATA.colorGrades || [];
+  var next = _cgLbIdx + dir;
+  if (next < 0 || next >= cgData.length) return;
+  _cgLbIdx = next;
+  _updateCGLightbox();
+}
+
+function closeCGLightbox() {
+  document.getElementById('cg-lightbox').classList.remove('open');
+  document.getElementById('cg-lightbox-img').src = '';
+  document.body.style.overflow = '';
+}
+
+function cgLightboxBgClick(e) {
+  if (e.target === document.getElementById('cg-lightbox')) closeCGLightbox();
+}
+
+document.addEventListener('keydown', function(e) {
+  var lb = document.getElementById('cg-lightbox');
+  if (!lb || !lb.classList.contains('open')) return;
+  if (e.key === 'Escape') closeCGLightbox();
+  if (e.key === 'ArrowLeft')  cgLightboxNav(-1);
+  if (e.key === 'ArrowRight') cgLightboxNav(1);
+});
+
+/* ── SCROLL PROGRESS BAR + SCROLL-TO-TOP ── */
+(function() {
+  var progressBar = document.getElementById('scroll-progress-bar');
+  var scrollBtn   = document.getElementById('scroll-top-btn');
+
+  function onScroll() {
+    var scrollTop  = window.scrollY || document.documentElement.scrollTop;
+    var docHeight  = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    var pct        = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+
+    // Progress bar
+    if (progressBar) progressBar.style.width = pct.toFixed(2) + '%';
+
+    // Scroll-to-top: show when 90% or more scrolled (near bottom)
+    if (scrollBtn) {
+      if (pct >= 90) {
+        scrollBtn.classList.add('visible');
+      } else {
+        scrollBtn.classList.remove('visible');
+      }
+    }
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll(); // init on load
+})();
