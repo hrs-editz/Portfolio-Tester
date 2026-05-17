@@ -225,17 +225,19 @@ function render() {
   if (dwSection) dwSection.style.display = dwData.length === 0 ? 'none' : '';
   if (dwNavLink)    dwNavLink.style.display    = dwData.length === 0 ? 'none' : '';
   if (dwDrawerLink) dwDrawerLink.style.display = dwData.length === 0 ? 'none' : '';
-  var dwLayout = DATA.dwLayout || 'landscape';
+  var dwLayout = DATA.dwLayout || 'landscape'; // kept for grid-level class fallback
   setHTML('designwork-container', dwData.map(function(dw, i) {
-    var hasPoster = dw.posterData && dw.posterData.length > 100;
-    var badgeClass = dwLayout === 'portrait' ? 'portrait' : 'landscape';
-    var badgeText  = dwLayout === 'portrait' ? '9:16' : '16:9';
+    var hasPoster   = dw.posterData && dw.posterData.length > 100;
+    var itemLayout  = dw.layout || dwLayout; // per-photo layout, falls back to global
+    var badgeClass  = itemLayout === 'portrait' ? 'portrait' : 'landscape';
+    var badgeText   = itemLayout === 'portrait' ? '9:16' : '16:9';
     var posterHtml = hasPoster
       ? '<img src="' + dw.posterData + '" alt="' + (dw.title||'Poster') + '">'
       : '<div class="dw-poster-placeholder">🖼️<span>Upload poster in admin panel</span></div>';
     var tagsHtml = (dw.tags||[]).map(function(t){ return '<span class="dw-tag">' + t + '</span>'; }).join('');
     var clickAttr = hasPoster ? ' onclick="openDWLightbox(' + i + ')"' : '';
-    return '<div class="dw-card"' + clickAttr + (hasPoster ? '' : ' style="cursor:default;"') + '>' +
+    var cardClass = 'dw-card' + (itemLayout === 'portrait' ? ' dw-card-portrait' : ' dw-card-landscape');
+    return '<div class="' + cardClass + '"' + clickAttr + (hasPoster ? '' : ' style="cursor:default;"') + '>' +
       '<div class="dw-poster-wrap">' +
         posterHtml +
         '<span class="dw-poster-badge ' + badgeClass + '">' + badgeText + '</span>' +
@@ -423,10 +425,10 @@ function renderDesignWorkEditor() {
   if (!c) return;
   c.innerHTML = '';
   var dwData = DATA.designWork || [];
-  var layout = DATA.dwLayout || 'landscape';
   dwData.forEach(function(dw, i) {
-    var hasPoster = dw.posterData && dw.posterData.length > 100;
-    var isPortrait = layout === 'portrait';
+    var hasPoster  = dw.posterData && dw.posterData.length > 100;
+    var itemLayout = dw.layout || 'landscape';
+    var isPortrait = itemLayout === 'portrait';
     c.innerHTML +=
       '<div class="admin-card" id="dw-card-' + i + '">' +
       '<div class="admin-card-header">' +
@@ -434,7 +436,16 @@ function renderDesignWorkEditor() {
       '<button class="admin-btn-remove" onclick="removeDesignWork(' + i + ')">Remove</button>' +
       '</div>' +
 
-      // Upload box
+      // ── PER-PHOTO LAYOUT SELECT (same style as video type dropdown) ──
+      '<div class="form-group" style="margin-bottom:1rem;">' +
+      '<label>📐 Photo Layout</label>' +
+      '<select id="dw-layout-' + i + '" onchange="onDWLayoutChange(' + i + ',this.value)" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
+      '<option value="landscape"' + (itemLayout === 'landscape' ? ' selected' : '') + '>🖼️ Landscape (16:9)</option>' +
+      '<option value="portrait"'  + (itemLayout === 'portrait'  ? ' selected' : '') + '>📱 Portrait (9:16)</option>' +
+      '</select>' +
+      '</div>' +
+
+      // Upload box — aspect ratio reacts to per-photo layout
       '<div style="margin-bottom:1rem;">' +
       '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;letter-spacing:0.04em;">POSTER IMAGE (' + (isPortrait ? '9:16 Portrait' : '16:9 Landscape') + ')</div>' +
       '<div class="dw-upload-box' + (isPortrait ? ' portrait-preview' : '') + (hasPoster ? ' has-img' : '') + '" onclick="document.getElementById(\'dw-poster-' + i + '\').click()" id="dw-poster-box-' + i + '" style="' + (isPortrait ? 'max-width:180px;' : '') + '">' +
@@ -452,6 +463,18 @@ function renderDesignWorkEditor() {
 
       '</div>';
   });
+}
+
+/* Instantly update layout label + upload box shape when dropdown changes */
+function onDWLayoutChange(i, val) {
+  if (!DATA.designWork || !DATA.designWork[i]) return;
+  DATA.designWork[i].layout = val;
+  renderDesignWorkEditor();
+  // Scroll back to the card after re-render
+  setTimeout(function() {
+    var card = document.getElementById('dw-card-' + i);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 80);
 }
 
 function handleDWFile(event, i) {
@@ -474,7 +497,7 @@ function removeDesignWork(i) {
 
 function addDesignWork() {
   if (!DATA.designWork) DATA.designWork = [];
-  DATA.designWork.push({ title: 'New Poster', desc: '', tags: [], posterData: '' });
+  DATA.designWork.push({ title: 'New Poster', desc: '', tags: [], posterData: '', layout: 'landscape' });
   renderDesignWorkEditor();
   setTimeout(function() {
     var cards = document.querySelectorAll('#designwork-editor .admin-card');
@@ -917,11 +940,13 @@ function applyChanges() {
   });
 
   DATA.designWork = (DATA.designWork || []).map(function(dw, i) {
+    var sel = document.getElementById('dw-layout-' + i);
     return {
       title:      get('dw-title-' + i) || dw.title || '',
       desc:       get('dw-desc-'  + i) || '',
       tags:       (get('dw-tags-' + i)||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
-      posterData: dw.posterData || ''
+      posterData: dw.posterData || '',
+      layout:     (sel ? sel.value : null) || dw.layout || 'landscape'
     };
   });
 
