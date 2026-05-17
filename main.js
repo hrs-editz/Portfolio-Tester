@@ -181,7 +181,7 @@ function render() {
     var hasAfter  = cg.afterData  && cg.afterData.length > 100;
     var sliderHtml = '';
     if (hasBefore || hasAfter) {
-      sliderHtml = '<div class="cg-slider-wrap" id="cg-slider-' + i + '">' +
+      sliderHtml = '<div class="cg-slider-wrap" id="cg-slider-' + i + '" data-cg-idx="' + i + '">' +
         (hasAfter  ? '<img class="cg-img-after"  src="' + cg.afterData  + '" alt="After">'  : '') +
         (hasBefore ? '<img class="cg-img-before" src="' + cg.beforeData + '" alt="Before">' : '') +
         '<div class="cg-divider-line" id="cg-line-' + i + '"></div>' +
@@ -190,6 +190,7 @@ function render() {
         '</div>' +
         '<span class="cg-label-before">BEFORE</span>' +
         '<span class="cg-label-after">AFTER</span>' +
+        '<span class="cg-expand-hint">⛶ TAP TO EXPAND</span>' +
         '</div>';
     } else {
       sliderHtml = '<div class="cg-placeholder">🎨<span>Upload Before &amp; After images in admin panel</span></div>';
@@ -232,25 +233,129 @@ function initColorGradeSliders() {
       setPos(pct);
     }
 
-    // Mouse
+    // Mouse — drag to slide, short click to open lightbox
+    var mouseDownX = 0, mouseMoved = false;
     wrap.addEventListener('mousedown', function(e) {
       e.preventDefault();
+      mouseDownX = e.clientX;
+      mouseMoved = false;
       onMove(e.clientX);
-      function mm(ev) { onMove(ev.clientX); }
-      function mu() { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }
+      function mm(ev) { if (Math.abs(ev.clientX - mouseDownX) > 4) mouseMoved = true; onMove(ev.clientX); }
+      function mu() {
+        document.removeEventListener('mousemove', mm);
+        document.removeEventListener('mouseup', mu);
+        if (!mouseMoved) openCGLightbox(i);
+      }
       document.addEventListener('mousemove', mm);
       document.addEventListener('mouseup', mu);
     });
 
-    // Touch
+    // Touch — drag to slide, short tap to open lightbox
+    var touchStartX = 0, touchMoved = false;
     wrap.addEventListener('touchstart', function(e) {
+      touchStartX = e.touches[0].clientX;
+      touchMoved = false;
       onMove(e.touches[0].clientX);
     }, {passive: true});
     wrap.addEventListener('touchmove', function(e) {
+      if (Math.abs(e.touches[0].clientX - touchStartX) > 8) touchMoved = true;
       onMove(e.touches[0].clientX);
+    }, {passive: true});
+    wrap.addEventListener('touchend', function() {
+      if (!touchMoved) openCGLightbox(i);
     }, {passive: true});
   });
 }
+
+/* ── COLOR GRADE LIGHTBOX ── */
+function openCGLightbox(i) {
+  var cgData = DATA.colorGrades || [];
+  var cg = cgData[i];
+  if (!cg) return;
+  var hasBefore = cg.beforeData && cg.beforeData.length > 100;
+  var hasAfter  = cg.afterData  && cg.afterData.length > 100;
+  if (!hasBefore && !hasAfter) return;
+
+  var lb      = document.getElementById('cg-lightbox');
+  var slider  = document.getElementById('cg-lightbox-slider');
+  var lbBefore = document.getElementById('cg-lb-before');
+  var lbAfter  = document.getElementById('cg-lb-after');
+  var lbLine   = document.getElementById('cg-lb-line');
+  var lbHandle = document.getElementById('cg-lb-handle');
+  var lbMeta   = document.getElementById('cg-lb-meta');
+  if (!lb || !slider || !lbBefore || !lbAfter) return;
+
+  // Set images
+  lbBefore.src = hasBefore ? cg.beforeData : '';
+  lbAfter.src  = hasAfter  ? cg.afterData  : '';
+  lbBefore.style.display = hasBefore ? 'block' : 'none';
+  lbAfter.style.display  = hasAfter  ? 'block' : 'none';
+
+  // Set aspect ratio from layout
+  var isPortrait = (DATA.cgLayout === 'portrait');
+  slider.style.aspectRatio = isPortrait ? '9/16' : '16/9';
+  slider.style.maxHeight   = isPortrait ? '80vh' : 'calc(88vh - 60px)';
+  slider.style.margin      = '0 auto';
+
+  // Meta
+  lbMeta.textContent = cg.title ? cg.title.toUpperCase() : '';
+
+  // Reset slider to 50%
+  var pct = 50;
+  function setLbPos(p) {
+    p = Math.max(2, Math.min(98, p));
+    pct = p;
+    lbBefore.style.clipPath = 'inset(0 ' + (100 - p) + '% 0 0)';
+    lbLine.style.left   = p + '%';
+    lbHandle.style.left = p + '%';
+  }
+  setLbPos(50);
+
+  // Show
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Slider drag in lightbox
+  function lbMove(clientX) {
+    var rect = slider.getBoundingClientRect();
+    setLbPos(((clientX - rect.left) / rect.width) * 100);
+  }
+  function lbMouseDown(e) {
+    e.preventDefault();
+    lbMove(e.clientX);
+    function mm(ev) { lbMove(ev.clientX); }
+    function mu() { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }
+    document.addEventListener('mousemove', mm);
+    document.addEventListener('mouseup', mu);
+  }
+  function lbTouchMove(e) { lbMove(e.touches[0].clientX); }
+  slider.addEventListener('mousedown', lbMouseDown);
+  slider.addEventListener('touchstart', function(e){ lbMove(e.touches[0].clientX); }, {passive:true});
+  slider.addEventListener('touchmove', lbTouchMove, {passive:true});
+
+  // Store cleanup
+  lb._cleanup = function() {
+    slider.removeEventListener('mousedown', lbMouseDown);
+    slider.removeEventListener('touchmove', lbTouchMove);
+  };
+}
+
+function closeCGLightbox() {
+  var lb = document.getElementById('cg-lightbox');
+  if (!lb) return;
+  lb.classList.remove('open');
+  document.body.style.overflow = '';
+  if (lb._cleanup) { lb._cleanup(); lb._cleanup = null; }
+}
+
+// Close lightbox on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeCGLightbox();
+});
+// Close on backdrop click
+document.getElementById('cg-lightbox') && document.getElementById('cg-lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeCGLightbox();
+});
 
 /* ── COLOR GRADE ADMIN EDITOR ── */
 function renderColorGradeEditor() {
