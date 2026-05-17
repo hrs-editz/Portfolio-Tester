@@ -483,6 +483,22 @@ if (DATA.videos) {
   });
 }
 
+// Remove 'Storytelling' tag and ensure Thumbnail Design is present
+if (DATA.tags) {
+  DATA.tags = DATA.tags.filter(function(t) {
+    return t.trim().toLowerCase() !== 'storytelling';
+  });
+  var hasThumbnail = DATA.tags.some(function(t) {
+    return t.toLowerCase().includes('thumbnail') || t.toLowerCase().includes('poster');
+  });
+  if (!hasThumbnail) DATA.tags.push('Thumbnail Design');
+}
+
+// Update tagline if it still has the old "tells your story" or "shaping narratives" wording
+if (DATA.tagline && (DATA.tagline.includes('tells your story') || DATA.tagline.includes('shaping narratives'))) {
+  DATA.tagline = 'I craft engaging videos that connect with audiences — from short-form reels to long-form content. I also design eye-catching thumbnails & posters to make your content stand out.';
+}
+
 render();
 
 
