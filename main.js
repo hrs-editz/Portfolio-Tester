@@ -195,20 +195,15 @@ function render() {
         '</div>' +
         '<span class="cg-label-before">BEFORE</span>' +
         '<span class="cg-label-after">AFTER</span>' +
+        '<div class="cg-fullscreen-hint"><svg viewBox="0 0 14 14" width="13" height="13"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg> Click to view fullscreen</div>' +
         '</div>';
     } else {
       sliderHtml = '<div class="cg-placeholder">🎨<span>Upload Before &amp; After images in admin panel</span></div>';
     }
     var tagsHtml = (cg.tags||[]).map(t => '<span class="cg-tag">' + t + '</span>').join('');
     var hasImages = (cg.beforeData && cg.beforeData.length > 100) || (cg.afterData && cg.afterData.length > 100);
-    var fullscreenBtn = hasImages
-      ? '<button class="cg-fullscreen-btn" title="View fullscreen" onclick="openCGLightbox(' + i + ',\'after\')" style="position:absolute;top:0.6rem;left:0.6rem;z-index:7;">' +
-        '<svg viewBox="0 0 14 14"><path d="M1 5V1h4M9 1h4v4M13 9v4H9M5 13H1V9"/></svg>' +
-        '</button>'
-      : '';
-    return '<div class="cg-card" style="position:relative;">' +
+    return '<div class="cg-card" style="position:relative;"' + (hasImages ? ' onclick="cgCardClick(event,' + i + ')"' : '') + '>' +
       sliderHtml +
-      fullscreenBtn +
       (cg.title ? '<div class="cg-card-title">' + cg.title + '</div>' : '') +
       (cg.desc  ? '<div class="cg-card-desc">'  + cg.desc  + '</div>' : '') +
       (tagsHtml ? '<div class="cg-tags">' + tagsHtml + '</div>' : '') +
@@ -1534,6 +1529,25 @@ document.addEventListener('keydown', function(e) {
 /* ── COLOR GRADE LIGHTBOX ── */
 var _cgLbIdx = 0;
 var _cgLbSide = 'after'; // 'before' or 'after'
+var _cgDragStartX = 0;
+var _cgDragging = false;
+
+// Called on mousedown/touchstart inside slider — track drag start position
+document.addEventListener('mousedown', function(e) {
+  var wrap = e.target.closest('.cg-slider-wrap');
+  if (wrap) { _cgDragStartX = e.clientX; _cgDragging = false; }
+});
+document.addEventListener('mousemove', function(e) {
+  if (Math.abs(e.clientX - _cgDragStartX) > 5) _cgDragging = true;
+});
+
+function cgCardClick(e, i) {
+  // If user dragged the slider, don't open lightbox
+  if (_cgDragging) { _cgDragging = false; return; }
+  // Don't trigger if clicking text/tags below slider
+  if (!e.target.closest('.cg-slider-wrap') && !e.target.closest('.cg-fullscreen-hint')) return;
+  openCGLightbox(i, 'after');
+}
 
 function openCGLightbox(i, side) {
   var cgData = DATA.colorGrades || [];
@@ -1551,19 +1565,47 @@ function _updateCGLightbox() {
   if (!cg) return;
   var img = document.getElementById('cg-lightbox-img');
   var lbl = document.getElementById('cg-lightbox-label');
-  var src = (_cgLbSide === 'before' && cg.beforeData && cg.beforeData.length > 100)
-    ? cg.beforeData
-    : (cg.afterData && cg.afterData.length > 100 ? cg.afterData : cg.beforeData);
+  var hasBefore = cg.beforeData && cg.beforeData.length > 100;
+  var hasAfter  = cg.afterData  && cg.afterData.length > 100;
+
+  // If only one image exists, always show it
+  if (!hasBefore) _cgLbSide = 'after';
+  if (!hasAfter)  _cgLbSide = 'before';
+
+  var src = (_cgLbSide === 'before') ? cg.beforeData : cg.afterData;
   img.src = src || '';
   img.style.animation = 'none';
   void img.offsetWidth;
   img.style.animation = '';
+
   var title = cg.title ? cg.title.toUpperCase() : 'COLOR GRADE';
   var sideLabel = (_cgLbSide === 'before') ? 'BEFORE' : 'AFTER (GRADED)';
-  lbl.textContent = title + '  ·  ' + sideLabel + '  ·  ' + (_cgLbIdx + 1) + ' / ' + cgData.length;
+  lbl.textContent = title + '  ·  ' + (_cgLbIdx + 1) + ' / ' + cgData.length;
+
+  // Update toggle buttons
+  var btnBefore = document.getElementById('cg-lb-btn-before');
+  var btnAfter  = document.getElementById('cg-lb-btn-after');
+  var toggleBar = document.getElementById('cg-lb-toggle');
+  if (toggleBar) toggleBar.style.display = (hasBefore && hasAfter) ? 'flex' : 'none';
+  if (btnBefore) {
+    btnBefore.style.background  = _cgLbSide === 'before' ? 'rgba(232,197,71,0.18)' : 'rgba(255,255,255,0.05)';
+    btnBefore.style.borderColor = _cgLbSide === 'before' ? 'rgba(232,197,71,0.55)' : 'rgba(255,255,255,0.12)';
+    btnBefore.style.color       = _cgLbSide === 'before' ? '#e8c547' : 'rgba(255,255,255,0.5)';
+  }
+  if (btnAfter) {
+    btnAfter.style.background  = _cgLbSide === 'after' ? 'rgba(232,197,71,0.18)' : 'rgba(255,255,255,0.05)';
+    btnAfter.style.borderColor = _cgLbSide === 'after' ? 'rgba(232,197,71,0.55)' : 'rgba(255,255,255,0.12)';
+    btnAfter.style.color       = _cgLbSide === 'after' ? '#e8c547' : 'rgba(255,255,255,0.5)';
+  }
+
   // nav arrows
   document.getElementById('cg-lightbox-nav-prev').style.opacity = _cgLbIdx > 0 ? '1' : '0.2';
   document.getElementById('cg-lightbox-nav-next').style.opacity = _cgLbIdx < cgData.length - 1 ? '1' : '0.2';
+}
+
+function cgLightboxSetSide(side) {
+  _cgLbSide = side;
+  _updateCGLightbox();
 }
 
 function cgLightboxNav(dir) {
@@ -1590,6 +1632,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeCGLightbox();
   if (e.key === 'ArrowLeft')  cgLightboxNav(-1);
   if (e.key === 'ArrowRight') cgLightboxNav(1);
+  if (e.key === 'b' || e.key === 'B') cgLightboxSetSide('before');
+  if (e.key === 'a' || e.key === 'A') cgLightboxSetSide('after');
 });
 
 /* ── SCROLL PROGRESS BAR + SCROLL-TO-TOP (fully JS-injected) ── */
