@@ -495,6 +495,23 @@
 #cg-lightbox-nav-prev:hover,
 #cg-lightbox-nav-next:hover { background: rgba(232,197,71,0.15); border-color: rgba(232,197,71,0.4); color: var(--accent); }
 .cg-slider-wrap { cursor: ew-resize; }
+.cg-fullscreen-hint {
+  position: absolute;
+  bottom: 0.65rem; right: 0.75rem;
+  background: rgba(0,0,0,0.72);
+  color: rgba(255,255,255,0.75);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 2px;
+  display: flex; align-items: center; gap: 0.35rem;
+  pointer-events: none;
+  z-index: 8;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.cg-card:hover .cg-fullscreen-hint { opacity: 1; }
 .cg-card { position: relative; }
 .cg-fullscreen-btn {
   position: absolute;
@@ -1573,6 +1590,10 @@
   <button id="cg-lightbox-close" onclick="closeCGLightbox()">✕</button>
   <div id="cg-lightbox-label"></div>
   <img id="cg-lightbox-img" src="" alt="Color Grade">
+  <div id="cg-lb-toggle" style="position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);display:flex;gap:0.5rem;z-index:10;">
+    <button id="cg-lb-btn-before" onclick="cgLightboxSetSide('before')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.5);padding:0.5rem 1.3rem;border-radius:3px;font-family:var(--font-mono,monospace);font-size:0.72rem;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;">BEFORE</button>
+    <button id="cg-lb-btn-after"  onclick="cgLightboxSetSide('after')"  style="background:rgba(232,197,71,0.18);border:1px solid rgba(232,197,71,0.55);color:#e8c547;padding:0.5rem 1.3rem;border-radius:3px;font-family:var(--font-mono,monospace);font-size:0.72rem;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;">AFTER</button>
+  </div>
   <button id="cg-lightbox-nav-prev" onclick="cgLightboxNav(-1)">&#8592;</button>
   <button id="cg-lightbox-nav-next" onclick="cgLightboxNav(1)">&#8594;</button>
 </div>
