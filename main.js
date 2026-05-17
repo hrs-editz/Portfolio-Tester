@@ -203,8 +203,8 @@ function render() {
       '</div>';
   }).join(''));
 
-  // Init sliders after DOM update
-  setTimeout(function() { initColorGradeSliders(); }, 50);
+  // Init sliders + layout after DOM update
+  setTimeout(function() { initColorGradeSliders(); applyColorGradeLayoutClass(); }, 50);
 }
 
 /* ── COLOR GRADE SLIDER ── */
@@ -335,6 +335,47 @@ function addColorGrade() {
     var cards = document.querySelectorAll('#colorgrade-editor .admin-card');
     if (cards.length) cards[cards.length-1].scrollIntoView({ behavior: 'smooth' });
   }, 100);
+}
+
+// Layout picker
+function applyCGLayout(val) {
+  DATA.cgLayout = val || 'grid2';
+  applyColorGradeLayoutClass();
+  // Show feedback bar
+  var bar = document.getElementById('cg-layout-preview-bar');
+  if (bar) bar.style.display = 'block';
+  // Re-render public section instantly so admin can see effect
+  render();
+}
+
+function applyColorGradeLayoutClass() {
+  var grid = document.getElementById('colorgrade-container');
+  if (!grid) return;
+  var layout = DATA.cgLayout || 'grid2';
+  grid.className = 'colorgrade-grid fade-up';
+  if (layout !== 'grid2') grid.classList.add('layout-' + layout);
+
+  // Alternate layout: wrap slider + body in separate divs
+  if (layout === 'alternate') {
+    var cards = grid.querySelectorAll('.cg-card');
+    cards.forEach(function(card) {
+      // Only restructure if not already done
+      if (!card.querySelector('.cg-card-body')) {
+        var slider = card.querySelector('.cg-slider-wrap, .cg-placeholder');
+        var rest   = Array.from(card.children).filter(function(el) { return el !== slider; });
+        var body   = document.createElement('div');
+        body.className = 'cg-card-body';
+        rest.forEach(function(el) { body.appendChild(el); });
+        card.appendChild(body);
+      }
+    });
+  }
+
+  // Sync radio buttons
+  var radios = document.querySelectorAll('input[name="cg-layout"]');
+  radios.forEach(function(r) {
+    r.checked = (r.value === (DATA.cgLayout || 'grid2'));
+  });
 }
 
 // Migrate old before/after video data to single driveUrl
@@ -563,6 +604,10 @@ function populateAdmin() {
   set('edit-ejs-template', DATA.emailjsTemplateId);
   renderVideoEditor();
   renderColorGradeEditor();
+  // Restore layout radio
+  var savedLayout = DATA.cgLayout || 'grid2';
+  var radios = document.querySelectorAll('input[name="cg-layout"]');
+  radios.forEach(function(r) { r.checked = (r.value === savedLayout); });
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
 }
 
@@ -736,6 +781,10 @@ function applyChanges() {
   DATA.emailjsServiceId = get('edit-ejs-service');
   DATA.emailjsTemplateId = get('edit-ejs-template');
 
+  // Save layout choice
+  var checkedLayout = document.querySelector('input[name="cg-layout"]:checked');
+  if (checkedLayout) DATA.cgLayout = checkedLayout.value;
+
   DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
     return {
       title:      get('cg-title-' + i) || cg.title || '',
@@ -864,18 +913,30 @@ async function compressDataImages(data) {
 }
 
 function buildExportHTML(exportData) {
-  var src   = document.documentElement.outerHTML;
+  var src = document.documentElement.outerHTML;
 
+  // Close admin/pwd panels if open
   src = src.replace(/<div id="admin-panel"[^>]*class="[^"]*open[^"]*"[^>]*>/g,
     function(m) { return m.replace(/\bopen\b/g, '').replace(/class=" "/, 'class=""'); });
   src = src.replace(/<div id="pwd-prompt"[^>]*class="[^"]*open[^"]*"[^>]*>/g,
     function(m) { return m.replace(/\bopen\b/g, '').replace(/class=" "/, 'class=""'); });
 
-  var block = 'const DATA = ' + JSON.stringify(exportData) + ';';
-  var start = src.indexOf('const DATA = {');
-  var end   = src.indexOf('const ADMIN_PASSWORD');
-  if (start === -1 || end === -1) return src;
-  return src.slice(0, start) + block + '\n\n' + src.slice(end);
+  // Bake DATA inline — replace <script src="data.js"> so viewers get all images.
+  // Without this, exported pages load data.js from server which viewers don\'t have.
+  var inlineDataTag = '<scr' + 'ipt>\nconst DATA = ' + JSON.stringify(exportData) + ';\n<\/scr' + 'ipt>';
+  var replaced = src.replace(/<script\s+src=["\']data\.js["\']\s*><\/script>/i, inlineDataTag);
+
+  // Fallback: old in-page DATA pattern
+  if (replaced === src) {
+    var block = 'const DATA = ' + JSON.stringify(exportData) + ';';
+    var start = src.indexOf('const DATA = {');
+    var end   = src.indexOf('const ADMIN_PASSWORD');
+    if (start !== -1 && end !== -1) {
+      replaced = src.slice(0, start) + block + '\n\n' + src.slice(end);
+    }
+  }
+
+  return replaced;
 }
 
 function showSizeBar(bytes, color, msg) {
