@@ -114,6 +114,10 @@ function render() {
   setHTML('videos-container', videosHTML);
 
   const tagColors = ['tag-gold','tag-red','tag-blue','tag-white'];
+  // Always replace Storytelling with Thumbnail Designer regardless of data.js
+  DATA.tags = DATA.tags.map(function(t) {
+    return t.trim().toLowerCase() === 'storytelling' ? 'Thumbnail Designer' : t;
+  });
   setHTML('hero-tags', DATA.tags.map((t,i)=>`<span class="tag ${tagColors[i%4]}">${t}</span>`).join(''));
 
   setHTML('about-pills', DATA.pills.map(p=>`<span class="pill">${p}</span>`).join(''));
