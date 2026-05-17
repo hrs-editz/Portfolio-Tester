@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css">
 <style>
 /* ── COLOR GRADE SECTION ── */
-#colorgrade { overflow: visible; }
+#colorgrade { padding: 5rem 0; overflow: visible; }
 .colorgrade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -216,6 +216,124 @@
   .colorgrade-grid { grid-template-columns: 1fr; }
   .colorgrade-grid.layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 }
+
+/* ── DESIGN WORK SECTION ── */
+#designwork { padding: 5rem 0; overflow: visible; }
+.dw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 2rem;
+  margin-top: 2.5rem;
+}
+.dw-grid.dw-layout-portrait {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+.dw-card {
+  background: var(--dark2, #111);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.dw-card:hover { border-color: rgba(232,197,71,0.35); transform: translateY(-3px); }
+.dw-poster-wrap {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: rgba(255,255,255,0.03);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.dw-layout-portrait .dw-poster-wrap { aspect-ratio: 9/16; }
+.dw-poster-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dw-poster-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  color: var(--muted, #666);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  gap: 0.5rem;
+}
+.dw-poster-badge {
+  position: absolute; top: 0.6rem; right: 0.6rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 2px;
+  z-index: 3;
+  pointer-events: none;
+}
+.dw-poster-badge.landscape { background: rgba(0,0,0,0.75); color: #fff; }
+.dw-poster-badge.portrait  { background: rgba(232,197,71,0.85); color: #000; }
+.dw-card-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  color: var(--accent, #e8c547);
+  letter-spacing: 0.08em;
+  padding: 0.85rem 1.1rem 0.4rem;
+  text-transform: uppercase;
+}
+.dw-card-desc {
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.82rem;
+  color: var(--muted, #888);
+  padding: 0 1.1rem 0.9rem;
+  line-height: 1.5;
+}
+.dw-tags {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  padding: 0 1.1rem 1rem;
+}
+.dw-tag {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  background: rgba(232,197,71,0.08);
+  color: var(--accent, #e8c547);
+  border: 1px solid rgba(232,197,71,0.2);
+  border-radius: 2px;
+  padding: 0.2rem 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+/* ── ADMIN: Design Work upload box ── */
+.dw-upload-box {
+  position: relative;
+  border: 1px dashed var(--border, rgba(255,255,255,0.12));
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255,255,255,0.02);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: border-color 0.2s;
+  aspect-ratio: 16/9;
+}
+.dw-upload-box.portrait-preview { aspect-ratio: 9/16; max-width: 180px; }
+.dw-upload-box:hover { border-color: var(--accent, #e8c547); }
+.dw-upload-box img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.dw-upload-box .dw-upload-label {
+  position: relative; z-index: 2;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--muted, #888);
+  text-align: center;
+  padding: 0.5rem;
+  pointer-events: none;
+}
+.dw-upload-box.has-img .dw-upload-label { background: rgba(0,0,0,0.55); border-radius: 3px; color: var(--accent); }
+
+/* layout picker reused from cg styles – works the same */
+@media (max-width: 700px) {
+  .dw-grid { grid-template-columns: 1fr; }
+  .dw-grid.dw-layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+}
 </style></head>
 <body>
 
@@ -417,6 +535,7 @@
     <li><a href="#skills">Skills</a></li>
     <li><a href="#videos">Videos</a></li>
     <li><a href="#colorgrade">Photo Editz</a></li>
+    <li><a href="#designwork" id="nav-dw-link" style="display:none;">Design Work</a></li>
     <li><a href="#experience">Experience</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
@@ -441,6 +560,7 @@
     <li><a href="#skills" onclick="closeDrawer()"><span class="link-num">02</span>Skills</a></li>
     <li><a href="#videos" onclick="closeDrawer()"><span class="link-num">04</span>Videos</a></li>
     <li><a href="#colorgrade" onclick="closeDrawer()"><span class="link-num">05</span>Photo Editz</a></li>
+    <li id="drawer-dw-link" style="display:none;"><a href="#designwork" onclick="closeDrawer()"><span class="link-num">05b</span>Design Work</a></li>
     <li><a href="#experience" onclick="closeDrawer()"><span class="link-num">06</span>Experience</a></li>
     <li><a href="#contact" onclick="closeDrawer()"><span class="link-num">07</span>Contact</a></li>
   </ul>
@@ -621,12 +741,23 @@
 
 <!-- COLOR GRADE -->
 <section id="colorgrade">
-  <div class="fade-up visible">
+  <div class="fade-up">
     <div class="section-eyebrow">Before &amp; After</div>
     <h2 class="section-title">Color <em style="font-style:italic;color:var(--accent)">Grade</em></h2>
     <p class="section-sub">Drag the slider to reveal the graded result.</p>
   </div>
-  <div id="colorgrade-container" class="colorgrade-grid fade-up visible"></div>
+  <div id="colorgrade-container" class="colorgrade-grid fade-up"></div>
+</section>
+
+
+<!-- DESIGN WORK -->
+<section id="designwork" style="display:none;">
+  <div class="fade-up">
+    <div class="section-eyebrow">Poster Design</div>
+    <h2 class="section-title">Design <em style="font-style:italic;color:var(--accent)">Work</em></h2>
+    <p class="section-sub">Graphic design, posters, and visual assets crafted for brands and creators.</p>
+  </div>
+  <div id="designwork-container" class="dw-grid fade-up"></div>
 </section>
 
 <!-- EXPERIENCE -->
@@ -894,6 +1025,7 @@
       <button class="admin-tab" onclick="switchTab('about')">About</button>
       <button class="admin-tab" onclick="switchTab('videos')">Videos</button>
       <button class="admin-tab" onclick="switchTab('colorgrade')">🎨 Color Grade</button>
+      <button class="admin-tab" onclick="switchTab('designwork')">🖼️ Design Work</button>
       <button class="admin-tab" onclick="switchTab('skills')">Skills</button>
       <button class="admin-tab" onclick="switchTab('projects')">Projects</button>
       <button class="admin-tab" onclick="switchTab('experience')">Experience</button>
@@ -1022,6 +1154,60 @@
 
       <div id="colorgrade-editor"></div>
       <button class="admin-btn-add" onclick="addColorGrade()">+ Add Color Grade</button>
+    </div>
+
+    <!-- DESIGN WORK -->
+    <div class="admin-section" id="tab-designwork">
+      <div class="video-upload-note">
+        <strong>🖼️ DESIGN WORK — Poster Gallery:</strong><br>
+        Upload your designed poster images (event posters, brand visuals, social creatives, etc.).<br>
+        Choose <strong>Portrait (9:16)</strong> for mobile/social posters or <strong>Landscape (16:9)</strong> for wide-format designs.
+        <span style="color:var(--muted);">Tip: Export PNG or JPG at high resolution. Keep under 2MB each for best performance.</span>
+      </div>
+
+      <!-- LAYOUT PICKER -->
+      <div style="margin-bottom:1.5rem;">
+        <label style="font-family:var(--font-mono);font-size:0.75rem;color:var(--muted);letter-spacing:0.06em;display:block;margin-bottom:0.75rem;">POSTER ORIENTATION (applies to entire gallery)</label>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;" id="dw-layout-picker">
+
+          <!-- LANDSCAPE -->
+          <label class="cg-layout-opt" title="Landscape (16:9 wide)">
+            <input type="radio" name="dw-layout" value="landscape" onchange="applyDWLayout(this.value)" style="display:none" checked>
+            <div class="cg-layout-icon cg-lo-landscape">
+              <svg viewBox="0 0 56 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="5" width="54" height="26" rx="3" stroke="currentColor" stroke-width="2"/>
+                <rect x="8" y="10" width="18" height="16" rx="1" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+                <rect x="30" y="10" width="18" height="16" rx="1" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+              </svg>
+              <span>Landscape 16:9</span>
+            </div>
+          </label>
+
+          <!-- PORTRAIT -->
+          <label class="cg-layout-opt" title="Portrait (9:16 tall)">
+            <input type="radio" name="dw-layout" value="portrait" onchange="applyDWLayout(this.value)" style="display:none">
+            <div class="cg-layout-icon cg-lo-portrait">
+              <svg viewBox="0 0 36 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="5" y="1" width="26" height="54" rx="3" stroke="currentColor" stroke-width="2"/>
+                <rect x="10" y="8" width="16" height="18" rx="1" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+                <rect x="10" y="30" width="16" height="18" rx="1" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+              </svg>
+              <span>Portrait 9:16</span>
+            </div>
+          </label>
+
+        </div>
+        <div style="margin-top:0.75rem;font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);line-height:1.6;">
+          <strong style="color:var(--accent);">Landscape</strong> — great for banners, thumbnails, wide brand visuals &nbsp;|&nbsp;
+          <strong style="color:var(--accent);">Portrait</strong> — great for event posters, Instagram stories, mobile ads
+        </div>
+        <div id="dw-layout-preview-bar" style="margin-top:0.8rem;padding:0.65rem 1rem;background:rgba(232,197,71,0.06);border:1px solid rgba(232,197,71,0.18);border-radius:3px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);letter-spacing:0.04em;display:none;">
+          ✅ Layout updated — click <strong>Save Changes</strong> then <strong>Publish</strong> to go live.
+        </div>
+      </div>
+
+      <div id="designwork-editor"></div>
+      <button class="admin-btn-add" onclick="addDesignWork()">+ Add Poster</button>
     </div>
 
     <!-- SKILLS -->
