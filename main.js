@@ -89,9 +89,60 @@ function render() {
   const videosHTML = DATA.videos.length === 0
     ? '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.85rem;padding:2rem 0;">No videos yet. Open the admin panel → Videos tab to add your work.</p>'
     : DATA.videos.map((v,i) => {
-        const hasVideo = !!extractDriveId(v.driveUrl || '');
+        const isBeforeAfter = (v.type === 'beforeafter');
         const isShort = (v.type === 'short');
+        const isThumbnailOnly = !!v.thumbnailOnly;
+        const hasVideo = !!extractDriveId(v.driveUrl || '');
         const hasPoster = v.posterData && v.posterData.length > 100;
+        const hasBeforeData = v.beforeData && v.beforeData.length > 100;
+        const hasAfterData  = v.afterData  && v.afterData.length  > 100;
+
+        // ── Before/After slider card ──
+        if (isBeforeAfter) {
+          if (!hasBeforeData && !hasAfterData) {
+            return '<div class="video-card" style="opacity:0.5;pointer-events:none;">' +
+              '<div class="video-thumb" style="display:flex;align-items:center;justify-content:center;background:#111;"><div class="video-thumb-placeholder">🔀</div></div>' +
+              '<div class="video-info"><div class="video-cat">' + v.cat + '</div><div class="video-title">' + v.title + '</div><div class="video-desc">Upload Before &amp; After images in admin panel</div></div></div>';
+          }
+          const beforeSrc = hasBeforeData ? v.beforeData : '';
+          const afterSrc  = hasAfterData  ? v.afterData  : '';
+          return '<div class="video-card ba-card" data-ba-idx="' + i + '">' +
+            '<div class="ba-slider-wrap">' +
+              '<div class="ba-img ba-after" style="background-image:url(\'' + afterSrc + '\')"></div>' +
+              '<div class="ba-img ba-before" style="background-image:url(\'' + beforeSrc + '\');clip-path:inset(0 50% 0 0)"></div>' +
+              '<div class="ba-divider">' +
+                '<div class="ba-handle"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 5l-5 7 5 7M16 5l5 7-5 7" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>' +
+              '</div>' +
+              '<div class="ba-label ba-label-before">BEFORE</div>' +
+              '<div class="ba-label ba-label-after">AFTER</div>' +
+            '</div>' +
+            '<div class="video-info">' +
+              '<div class="video-cat">' + v.cat + '</div>' +
+              '<div class="video-title">' + v.title + '</div>' +
+              '<div class="video-desc">' + v.desc + '</div>' +
+              '<div class="video-tags">' + (v.tags||[]).map(t => '<span class="video-tag">' + t + '</span>').join('') + '</div>' +
+            '</div></div>';
+        }
+
+        // ── Thumbnail-only card (static image, no play, no lightbox) ──
+        if (isThumbnailOnly) {
+          const thumbSrc = hasPoster ? v.posterData : '';
+          return '<div class="video-card thumbnail-only-card">' +
+            '<div class="video-thumb">' +
+              (hasPoster
+                ? '<img src="' + thumbSrc + '" alt="' + v.title + '" style="width:100%;height:100%;object-fit:cover;">'
+                : '<div class="video-thumb-placeholder">🖼️</div>') +
+              '<div class="ba-label ba-label-after" style="top:0.6rem;left:0.6rem;right:auto;bottom:auto;">RESULT</div>' +
+            '</div>' +
+            '<div class="video-info">' +
+              '<div class="video-cat">' + v.cat + '</div>' +
+              '<div class="video-title">' + v.title + '</div>' +
+              '<div class="video-desc">' + v.desc + '</div>' +
+              '<div class="video-tags">' + (v.tags||[]).map(t => '<span class="video-tag">' + t + '</span>').join('') + '</div>' +
+            '</div></div>';
+        }
+
+        // ── Standard video card ──
         const thumbHTML = hasPoster
           ? '<img src="' + v.posterData + '" alt="' + v.title + '" style="width:100%;height:100%;object-fit:cover;">'
           : '<div class="video-thumb-placeholder">' + (isShort ? '📱' : '🎬') + '</div>';
@@ -112,34 +163,7 @@ function render() {
           '</div></div>';
       }).join('');
   setHTML('videos-container', videosHTML);
-
-  // ── Color Grade render ──────────────────────────
-  var cgContainer = document.getElementById('colorgrade-container');
-  if (cgContainer) {
-    if (!DATA.colorGrades || DATA.colorGrades.length === 0) {
-      cgContainer.innerHTML = '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.85rem;padding:2rem 0;">No color grade shots yet. Open the admin panel → Color Grade tab to upload your work.</p>';
-    } else {
-      cgContainer.innerHTML = DATA.colorGrades.map(function(cg, i) {
-        var isPortrait = (cg.layout === 'portrait');
-        var hasImg = cg.imageData && cg.imageData.length > 100;
-        var badgeLabel = isPortrait ? 'PORTRAIT · 9:16' : 'LANDSCAPE · 16:9';
-        var thumbHTML = hasImg
-          ? '<img src="' + cg.imageData + '" alt="' + (cg.title || '') + '">'
-          : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;background:rgba(255,255,255,0.03);">🎨</div>';
-        return '<div class="cg-card ' + (isPortrait ? 'portrait' : 'landscape') + '" onclick="openCGLightbox(' + i + ')">' +
-          '<div class="cg-thumb">' + thumbHTML +
-          '<div class="cg-badge">' + badgeLabel + '</div>' +
-          '<div class="cg-overlay"></div>' +
-          '</div>' +
-          '<div class="cg-info">' +
-          '<div class="cg-cat">' + (cg.cat || 'Color Grade') + '</div>' +
-          '<div class="cg-title">' + (cg.title || 'Untitled') + '</div>' +
-          '<div class="cg-tags">' + (cg.tags || []).map(function(t) { return '<span class="cg-tag">' + t + '</span>'; }).join('') + '</div>' +
-          '</div></div>';
-      }).join('');
-    }
-  }
-  // ── End Color Grade render ──────────────────────
+  initBeforeAfterSliders();
 
   const tagColors = ['tag-gold','tag-red','tag-blue','tag-white'];
   setHTML('hero-tags', DATA.tags.map((t,i)=>`<span class="tag ${tagColors[i%4]}">${t}</span>`).join(''));
@@ -213,9 +237,6 @@ if (DATA.videos) {
   });
 }
 
-// Init colorGrades array if missing
-if (!DATA.colorGrades) DATA.colorGrades = [];
-
 render();
 
 
@@ -286,36 +307,10 @@ function closeLightbox() {
   document.body.style.overflow = '';
 }
 
-// ── Color Grade Lightbox ─────────────────────────
-function openCGLightbox(i) {
-  var cg = DATA.colorGrades[i];
-  if (!cg || !cg.imageData) return;
-  var isPortrait = (cg.layout === 'portrait');
-  var inner = document.getElementById('cg-lightbox-inner');
-  var img   = document.getElementById('cg-lightbox-img');
-  var title = document.getElementById('cg-lightbox-title');
-  var tags  = document.getElementById('cg-lightbox-tags');
-  inner.className = 'cg-lightbox-inner ' + (isPortrait ? 'portrait' : 'landscape');
-  img.src = cg.imageData;
-  img.alt = cg.title || '';
-  title.textContent = cg.title || '';
-  tags.innerHTML = (cg.tags || []).map(function(t) { return '<span class="cg-tag">' + t + '</span>'; }).join('');
-  document.getElementById('cg-lightbox').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeCGLightbox() {
-  document.getElementById('cg-lightbox').classList.remove('open');
-  document.getElementById('cg-lightbox-img').src = '';
-  document.body.style.overflow = '';
-}
-
-document.getElementById('cg-lightbox').addEventListener('click', function(e) {
-  if (e.target === this) closeCGLightbox();
+document.getElementById('video-lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
 });
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeLightbox(); closeCGLightbox(); }
-});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
 function openDrawer() {
   document.getElementById('nav-drawer').classList.add('open');
   document.getElementById('nav-overlay').classList.add('open');
@@ -455,7 +450,6 @@ function populateAdmin() {
   set('edit-ejs-service', DATA.emailjsServiceId);
   set('edit-ejs-template', DATA.emailjsTemplateId);
   renderVideoEditor();
-  renderColorGradeEditor();
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
 }
 
@@ -465,11 +459,64 @@ function renderVideoEditor() {
   if (!c) return;
   c.innerHTML = '';
   DATA.videos.forEach((v, i) => {
-    const hasDrive  = !!extractDriveId(v.driveUrl || '');
-    const hasPoster = v.posterData && v.posterData.length > 100;
+    const hasDrive      = !!extractDriveId(v.driveUrl || '');
+    const hasPoster     = v.posterData && v.posterData.length > 100;
+    const hasBeforeData = v.beforeData && v.beforeData.length > 100;
+    const hasAfterData  = v.afterData  && v.afterData.length  > 100;
+    const isBA          = (v.type === 'beforeafter');
+    const isThumbOnly   = !!v.thumbnailOnly;
 
     const driveIdHtml = hasDrive
       ? '<div style="margin-top:0.5rem;padding:0.5rem 0.8rem;background:rgba(232,197,71,0.08);border:1px solid rgba(232,197,71,0.2);border-radius:3px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);">✅ Drive ID detected: ' + extractDriveId(v.driveUrl) + '</div>'
+      : '';
+
+    // Before/After image upload rows (shown only when type = beforeafter)
+    const baSection = isBA
+      ? '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label>🔙 Before Image</label>' +
+            '<div class="vid-upload-area" id="vid-before-area-' + i + '" onclick="document.getElementById(&apos;vid-before-' + i + '&apos;).click()">' +
+            (hasBeforeData ? '<span style="color:var(--accent)">✅ Before image uploaded</span>' : '<span>📂 Click to upload BEFORE image</span>') +
+            '</div>' +
+            '<input type="file" id="vid-before-' + i + '" accept="image/*" style="display:none" onchange="handleBeforeFile(event,' + i + ')">' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label>✨ After Image</label>' +
+            '<div class="vid-upload-area" id="vid-after-area-' + i + '" onclick="document.getElementById(&apos;vid-after-' + i + '&apos;).click()">' +
+            (hasAfterData ? '<span style="color:var(--accent)">✅ After image uploaded</span>' : '<span>📂 Click to upload AFTER image</span>') +
+            '</div>' +
+            '<input type="file" id="vid-after-' + i + '" accept="image/*" style="display:none" onchange="handleAfterFile(event,' + i + ')">' +
+          '</div>' +
+        '</div>'
+      : '';
+
+    // Drive URL row (hidden for before/after type)
+    const driveSection = !isBA
+      ? '<div class="form-group">' +
+          '<label>🎬 Video — Google Drive Share Link</label>' +
+          '<input type="text" id="vid-drive-url-' + i + '" placeholder="Paste Google Drive share link here..." value="' + (v.driveUrl || '') + '" oninput="previewDriveLink(&apos;drive&apos;,' + i + ')">' +
+          '<div id="vid-drive-preview-' + i + '">' + driveIdHtml + '</div>' +
+        '</div>'
+      : '';
+
+    // Thumbnail upload (always shown; for beforeafter it acts as card cover)
+    const posterSection =
+      '<div class="form-group">' +
+      '<label>🖼️ Thumbnail Image' + (isBA ? ' (optional cover for the card title area)' : ' (optional — shown on video card)') + '</label>' +
+      '<div class="vid-upload-area" id="vid-poster-area-' + i + '" onclick="document.getElementById(&apos;vid-poster-&apos;+' + i + '+&apos;&apos;).click()">' +
+      (hasPoster ? '<span style="color:var(--accent)">✅ Thumbnail uploaded</span>' : '<span>🖼️ Click to upload thumbnail (JPG/PNG)</span>') +
+      '</div>' +
+      '<input type="file" id="vid-poster-' + i + '" accept="image/*" style="display:none" onchange="handlePosterFile(event,' + i + ')">' +
+      '</div>';
+
+    // Thumbnail-only toggle (not available for beforeafter which is already image-only)
+    const thumbOnlyToggle = !isBA
+      ? '<div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">' +
+          '<label style="margin:0;display:flex;align-items:center;gap:0.6rem;cursor:pointer;">' +
+            '<input type="checkbox" id="vid-thumbonly-' + i + '"' + (isThumbOnly ? ' checked' : '') + ' onchange="toggleThumbOnly(this,' + i + ')" style="width:16px;height:16px;accent-color:var(--accent);">' +
+            '<span>🖼️ <strong>Thumbnail-Only Mode</strong> — show image only, no play button or lightbox</span>' +
+          '</label>' +
+        '</div>'
       : '';
 
     c.innerHTML +=
@@ -479,34 +526,24 @@ function renderVideoEditor() {
       '<button class="admin-btn-remove" onclick="removeVideo(' + i + ')">Remove</button>' +
       '</div>' +
 
-      '<div class="form-group">' +
-      '<label>🎬 Video — Google Drive Share Link</label>' +
-      '<input type="text" id="vid-drive-url-' + i + '" placeholder="Paste Google Drive share link here..." value="' + (v.driveUrl || '') + '" oninput="previewDriveLink(&apos;drive&apos;,' + i + ')">' +
-      '<div id="vid-drive-preview-' + i + '">' + driveIdHtml + '</div>' +
-      '</div>' +
-
-      '<div class="form-group">' +
-      '<label>🖼️ Thumbnail Image (optional — shown on video card)</label>' +
-      '<div class="vid-upload-area" id="vid-poster-area-' + i + '" onclick="document.getElementById(&apos;vid-poster-&apos;+' + i + '+&apos;&apos;).click()">' +
-      (hasPoster
-        ? '<span style="color:var(--accent)">✅ Thumbnail uploaded</span>'
-        : '<span>🖼️ Click to upload thumbnail (JPG/PNG)</span>') +
-      '</div>' +
-      '<input type="file" id="vid-poster-' + i + '" accept="image/*" style="display:none" onchange="handlePosterFile(event,' + i + ')">' +
-      '</div>' +
+      driveSection +
+      posterSection +
+      baSection +
 
       '<div class="form-row">' +
       '<div class="form-group"><label>Category</label><input type="text" id="vid-cat-' + i + '" value="' + (v.cat||'') + '"></div>' +
       '<div class="form-group"><label>Title</label><input type="text" id="vid-title-' + i + '" value="' + (v.title||'') + '"></div>' +
       '</div>' +
       '<div class="form-row">' +
-      '<div class="form-group"><label>📐 Video Type</label>' +
-      '<select id="vid-type-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
+      '<div class="form-group"><label>📐 Card Type</label>' +
+      '<select id="vid-type-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;" onchange="renderVideoEditor()">' +
       '<option value="video"' + ((!v.type || v.type==='video') ? ' selected' : '') + '>🎬 Video (16:9 landscape)</option>' +
       '<option value="short"' + (v.type==='short' ? ' selected' : '') + '>📱 Short / Reel (9:16 portrait)</option>' +
+      '<option value="beforeafter"' + (v.type==='beforeafter' ? ' selected' : '') + '>🔀 Before/After Slider (images)</option>' +
       '</select></div>' +
       '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="vid-tags-' + i + '" value="' + (v.tags||[]).join(', ') + '"></div>' +
       '</div>' +
+      thumbOnlyToggle +
       '<div class="form-group"><label>Description</label><textarea id="vid-desc-' + i + '" rows="2">' + (v.desc||'') + '</textarea></div>' +
       '</div>';
   });
@@ -539,90 +576,72 @@ function handlePosterFile(event, i) {
   reader.readAsDataURL(file);
 }
 
+function handleBeforeFile(event, i) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const area = document.getElementById('vid-before-area-' + i);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    DATA.videos[i].beforeData = e.target.result;
+    area.innerHTML = '<span style="color:var(--accent)">✅ Before image ready — ' + file.name + '</span>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleAfterFile(event, i) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const area = document.getElementById('vid-after-area-' + i);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    DATA.videos[i].afterData = e.target.result;
+    area.innerHTML = '<span style="color:var(--accent)">✅ After image ready — ' + file.name + '</span>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function toggleThumbOnly(checkbox, i) {
+  DATA.videos[i].thumbnailOnly = checkbox.checked;
+}
+
+function initBeforeAfterSliders() {
+  document.querySelectorAll('.ba-card').forEach(function(card) {
+    const wrap    = card.querySelector('.ba-slider-wrap');
+    const before  = card.querySelector('.ba-before');
+    const divider = card.querySelector('.ba-divider');
+    if (!wrap || !before || !divider) return;
+
+    function setPos(x) {
+      const rect  = wrap.getBoundingClientRect();
+      const pct   = Math.min(100, Math.max(0, ((x - rect.left) / rect.width) * 100));
+      before.style.clipPath  = 'inset(0 ' + (100 - pct) + '% 0 0)';
+      divider.style.left     = pct + '%';
+    }
+
+    // Initialise at 50%
+    setPos(wrap.getBoundingClientRect().left + wrap.getBoundingClientRect().width / 2);
+
+    let dragging = false;
+    divider.addEventListener('mousedown',  function(e) { dragging = true; e.preventDefault(); });
+    document.addEventListener('mouseup',   function()  { dragging = false; });
+    document.addEventListener('mousemove', function(e) { if (dragging) setPos(e.clientX); });
+
+    divider.addEventListener('touchstart', function(e) { dragging = true; e.preventDefault(); }, {passive:false});
+    document.addEventListener('touchend',  function()  { dragging = false; });
+    document.addEventListener('touchmove', function(e) { if (dragging) setPos(e.touches[0].clientX); }, {passive:true});
+  });
+}
+
 function removeVideo(i) { DATA.videos.splice(i, 1); renderVideoEditor(); }
 
 function addVideo() {
-  DATA.videos.push({title:'My Video',cat:'Category',desc:'Describe this video.',tags:['CapCut'],type:'video',driveUrl:'',posterData:''});
+  DATA.videos.push({title:'My Video',cat:'Category',desc:'Describe this video.',tags:['CapCut'],type:'video',driveUrl:'',posterData:'',beforeData:'',afterData:'',thumbnailOnly:false});
   renderVideoEditor();
   setTimeout(() => {
     const cards = document.querySelectorAll('#videos-editor .admin-card');
     if (cards.length) cards[cards.length-1].scrollIntoView({behavior:'smooth'});
   }, 100);
 }
-
-// ── Color Grade Admin Editor ──────────────────────
-function renderColorGradeEditor() {
-  var c = document.getElementById('colorgrade-editor');
-  if (!c) return;
-  if (!DATA.colorGrades || DATA.colorGrades.length === 0) {
-    c.innerHTML = '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.8rem;margin-bottom:1rem;">No shots added yet. Click "+ Add Color Grade Shot" below.</p>';
-    return;
-  }
-  c.innerHTML = '';
-  DATA.colorGrades.forEach(function(cg, i) {
-    var hasImg = cg.imageData && cg.imageData.length > 100;
-    var previewHTML = hasImg
-      ? '<img class="cg-thumb-preview" src="' + cg.imageData + '" alt="preview">'
-      : '';
-    c.innerHTML +=
-      '<div class="admin-card" id="cg-card-' + i + '">' +
-      '<div class="admin-card-header">' +
-      '<span class="admin-card-title">Shot ' + (i+1) + ': ' + (cg.title || 'Untitled') + '</span>' +
-      '<button class="admin-btn-remove" onclick="removeColorGrade(' + i + ')">Remove</button>' +
-      '</div>' +
-
-      '<div class="form-group">' +
-      '<label>🖼️ Image (Portrait 9:16 or Landscape 16:9)</label>' +
-      '<div class="cg-upload-area" id="cg-area-' + i + '" onclick="document.getElementById(\'cg-file-' + i + '\').click()">' +
-      (hasImg ? '<span style="color:var(--accent)">✅ Image uploaded — click to replace</span>' : '<span>📷 Click to upload graded shot (JPG/PNG/WEBP)</span>') +
-      previewHTML +
-      '</div>' +
-      '<input type="file" id="cg-file-' + i + '" accept="image/*" style="display:none" onchange="handleCGFile(event,' + i + ')">' +
-      '</div>' +
-
-      '<div class="form-row">' +
-      '<div class="form-group"><label>📐 Layout</label>' +
-      '<select id="cg-layout-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
-      '<option value="landscape"' + ((cg.layout !== 'portrait') ? ' selected' : '') + '>🖥️ Landscape (16:9)</option>' +
-      '<option value="portrait"' + (cg.layout === 'portrait' ? ' selected' : '') + '>📱 Portrait (9:16)</option>' +
-      '</select></div>' +
-      '<div class="form-group"><label>Category</label><input type="text" id="cg-cat-' + i + '" value="' + (cg.cat || '') + '" placeholder="e.g. Cinematic, Wedding"></div>' +
-      '</div>' +
-
-      '<div class="form-group"><label>Title</label><input type="text" id="cg-title-' + i + '" value="' + (cg.title || '') + '" placeholder="e.g. Golden Hour Grade"></div>' +
-      '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="cg-tags-' + i + '" value="' + (cg.tags || []).join(', ') + '" placeholder="e.g. LUT, Teal & Orange, Wedding"></div>' +
-      '</div>';
-  });
-}
-
-function handleCGFile(event, i) {
-  var file = event.target.files[0];
-  if (!file) return;
-  var area = document.getElementById('cg-area-' + i);
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    DATA.colorGrades[i].imageData = e.target.result;
-    area.innerHTML = '<span style="color:var(--accent)">✅ Image ready — ' + file.name + '</span>' +
-      '<img class="cg-thumb-preview" src="' + e.target.result + '" alt="preview">';
-  };
-  reader.readAsDataURL(file);
-}
-
-function removeColorGrade(i) {
-  DATA.colorGrades.splice(i, 1);
-  renderColorGradeEditor();
-}
-
-function addColorGrade() {
-  if (!DATA.colorGrades) DATA.colorGrades = [];
-  DATA.colorGrades.push({title:'New Shot', cat:'Color Grade', layout:'landscape', tags:['LUT'], imageData:''});
-  renderColorGradeEditor();
-  setTimeout(function() {
-    var cards = document.querySelectorAll('#colorgrade-editor .admin-card');
-    if (cards.length) cards[cards.length-1].scrollIntoView({behavior:'smooth'});
-  }, 100);
-}
-// ── End Color Grade Admin Editor ──────────────────
 
 function renderSkillsEditor() {
   const c = document.getElementById('skills-editor'); c.innerHTML = '';
@@ -704,23 +723,17 @@ function applyChanges() {
   DATA.emailjsTemplateId = get('edit-ejs-template');
 
   DATA.videos = DATA.videos.map((v,i)=>({
-    driveUrl: (document.getElementById('vid-drive-url-'+i) ? document.getElementById('vid-drive-url-'+i).value.trim() : (v.driveUrl||'')),
-    posterData: v.posterData || '',
-    type: (document.getElementById('vid-type-'+i) ? document.getElementById('vid-type-'+i).value : (v.type||'video')),
-    cat: get('vid-cat-'+i),
+    driveUrl:      (document.getElementById('vid-drive-url-'+i) ? document.getElementById('vid-drive-url-'+i).value.trim() : (v.driveUrl||'')),
+    posterData:    v.posterData  || '',
+    beforeData:    v.beforeData  || '',
+    afterData:     v.afterData   || '',
+    thumbnailOnly: !!(document.getElementById('vid-thumbonly-'+i) ? document.getElementById('vid-thumbonly-'+i).checked : v.thumbnailOnly),
+    type:          (document.getElementById('vid-type-'+i) ? document.getElementById('vid-type-'+i).value : (v.type||'video')),
+    cat:   get('vid-cat-'+i),
     title: get('vid-title-'+i),
-    desc: get('vid-desc-'+i),
-    tags: get('vid-tags-'+i).split(',').map(s=>s.trim()).filter(Boolean)
+    desc:  get('vid-desc-'+i),
+    tags:  get('vid-tags-'+i).split(',').map(s=>s.trim()).filter(Boolean)
   }));
-  DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
-    return {
-      imageData: cg.imageData || '',
-      layout: (document.getElementById('cg-layout-'+i) ? document.getElementById('cg-layout-'+i).value : (cg.layout||'landscape')),
-      cat: get('cg-cat-'+i),
-      title: get('cg-title-'+i),
-      tags: get('cg-tags-'+i).split(',').map(function(s){return s.trim();}).filter(Boolean)
-    };
-  });
   DATA.skills = DATA.skills.map((_,i)=>({
     icon: get(`sk-icon-${i}`), title: get(`sk-title-${i}`),
     desc: get(`sk-desc-${i}`), items: get(`sk-items-${i}`).split(',').map(s=>s.trim()).filter(Boolean)
@@ -814,14 +827,12 @@ async function compressDataImages(data) {
     const v = d.videos[i];
     if (v.posterData && v.posterData.startsWith('data:image'))
       v.posterData = await compressImage(v.posterData, 600, 0.60);
+    if (v.beforeData && v.beforeData.startsWith('data:image'))
+      v.beforeData = await compressImage(v.beforeData, 800, 0.65);
+    if (v.afterData && v.afterData.startsWith('data:image'))
+      v.afterData = await compressImage(v.afterData, 800, 0.65);
     delete v.videoData;
     delete v.fileName; delete v.mimeType;
-  }
-
-  for (let i = 0; i < (d.colorGrades||[]).length; i++) {
-    const cg = d.colorGrades[i];
-    if (cg.imageData && cg.imageData.startsWith('data:image'))
-      cg.imageData = await compressImage(cg.imageData, 1200, 0.72);
   }
 
   return d;
