@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css">
 <style>
 /* ── COLOR GRADE SECTION ── */
-#colorgrade { padding: 5rem 0; overflow: visible; }
+#colorgrade { overflow: visible; }
 .colorgrade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -205,125 +205,17 @@
   margin-top: 2.5rem;
 }
 .colorgrade-grid .cg-slider-wrap { aspect-ratio: 16 / 9; }
-/* Portrait: auto-fit + centred — prevents single card drifting left */
+/* Portrait: 3-column grid, 9:16 slider */
 .colorgrade-grid.layout-portrait {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 280px));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 1.5rem;
-  justify-content: center;
-}
-.colorgrade-grid.layout-portrait .cg-card {
-  width: 100%;
-  max-width: 280px;
 }
 .colorgrade-grid.layout-portrait .cg-slider-wrap { aspect-ratio: 9 / 16; }
 
 @media (max-width: 700px) {
   .colorgrade-grid { grid-template-columns: 1fr; }
-  .colorgrade-grid.layout-portrait {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    justify-content: unset;
-  }
-  .colorgrade-grid.layout-portrait .cg-card { max-width: none; }
+  .colorgrade-grid.layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 }
-
-/* ── FRAME FIX: video-thumb matches cg-card frame ── */
-.video-thumb {
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: #000;
-  position: relative;
-}
-.video-card.type-short .video-thumb {
-  aspect-ratio: 9 / 16 !important;
-}
-
-/* ── CG LIGHTBOX (fullscreen overlay) ── */
-#cg-lightbox {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  background: rgba(0,0,0,0.96);
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  padding: 1rem;
-}
-#cg-lightbox.open { display: flex; }
-#cg-lightbox-inner {
-  position: relative;
-  width: 100%;
-  max-width: 960px;
-  max-height: 88vh;
-}
-#cg-lightbox-slider {
-  position: relative;
-  overflow: hidden;
-  cursor: ew-resize;
-  user-select: none;
-  background: #000;
-  width: 100%;
-  border-radius: 4px;
-}
-#cg-lightbox-slider img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-#cg-lightbox-slider .cg-img-before { position: absolute; inset: 0; clip-path: inset(0 50% 0 0); }
-#cg-lightbox-slider .cg-img-after  { display: block; }
-#cg-lb-line {
-  position: absolute; top: 0; bottom: 0; left: 50%;
-  width: 2px; background: var(--accent, #e8c547);
-  transform: translateX(-50%); z-index: 4; pointer-events: none;
-}
-#cg-lb-handle {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 42px; height: 42px;
-  background: var(--accent, #e8c547); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  z-index: 5; pointer-events: none;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.6);
-}
-#cg-lb-handle svg { width: 20px; height: 20px; fill: #000; }
-.cg-lb-label {
-  position: absolute; top: 0.7rem;
-  font-family: var(--font-mono, monospace); font-size: 0.7rem;
-  letter-spacing: 0.06em; padding: 0.2rem 0.6rem;
-  border-radius: 2px; z-index: 6; pointer-events: none;
-}
-.cg-lb-label.before { left: 0.8rem; background: rgba(0,0,0,0.75); color: #fff; }
-.cg-lb-label.after  { right: 0.8rem; background: rgba(232,197,71,0.9); color: #000; }
-#cg-lb-close {
-  position: fixed; top: 1rem; right: 1rem;
-  width: 40px; height: 40px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
-  color: #fff; font-size: 1.3rem; line-height: 1;
-  border-radius: 50%; cursor: pointer; z-index: 10001;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s;
-}
-#cg-lb-close:hover { background: rgba(232,197,71,0.2); color: var(--accent, #e8c547); }
-#cg-lb-meta {
-  margin-top: 0.9rem; text-align: center;
-  font-family: var(--font-mono, monospace); font-size: 0.75rem;
-  color: var(--accent, #e8c547); letter-spacing: 0.08em;
-}
-/* Expand hint on CG card */
-.cg-expand-hint {
-  position: absolute; bottom: 0.6rem; right: 0.6rem;
-  background: rgba(0,0,0,0.65); border: 1px solid rgba(232,197,71,0.3);
-  border-radius: 3px; padding: 0.25rem 0.45rem;
-  font-size: 0.6rem; font-family: var(--font-mono, monospace);
-  color: var(--accent, #e8c547); letter-spacing: 0.05em;
-  z-index: 7; pointer-events: none; opacity: 0;
-  transition: opacity 0.2s;
-}
-.cg-slider-wrap:hover .cg-expand-hint { opacity: 1; }
 </style></head>
 <body>
 
@@ -729,12 +621,12 @@
 
 <!-- COLOR GRADE -->
 <section id="colorgrade">
-  <div class="fade-up">
+  <div class="fade-up visible">
     <div class="section-eyebrow">Before &amp; After</div>
     <h2 class="section-title">Color <em style="font-style:italic;color:var(--accent)">Grade</em></h2>
     <p class="section-sub">Drag the slider to reveal the graded result.</p>
   </div>
-  <div id="colorgrade-container" class="colorgrade-grid fade-up"></div>
+  <div id="colorgrade-container" class="colorgrade-grid fade-up visible"></div>
 </section>
 
 <!-- EXPERIENCE -->
@@ -1258,24 +1150,6 @@
   </div>
 </div>
 
-
-<!-- CG FULLSCREEN LIGHTBOX -->
-<div id="cg-lightbox">
-  <button id="cg-lb-close" onclick="closeCGLightbox()" title="Close (Esc)">✕</button>
-  <div id="cg-lightbox-inner">
-    <div id="cg-lightbox-slider">
-      <img id="cg-lb-after"  class="cg-img-after"  src="" alt="After">
-      <img id="cg-lb-before" class="cg-img-before" src="" alt="Before">
-      <div id="cg-lb-line"></div>
-      <div id="cg-lb-handle">
-        <svg viewBox="0 0 20 20"><path d="M7 4l-4 6 4 6M13 4l4 6-4 6" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
-      </div>
-      <span class="cg-lb-label before">BEFORE</span>
-      <span class="cg-lb-label after">AFTER</span>
-    </div>
-    <div id="cg-lb-meta"></div>
-  </div>
-</div>
 
 <!-- SCROLL TO TOP BUTTON -->
 <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top" aria-label="Scroll to top">
