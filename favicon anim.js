@@ -6,7 +6,7 @@
   var link = document.getElementById('favicon');
 
   var img = new Image();
-  img.src = 'test.png';
+  img.src = 'Test.png';
 
   /* Shine state */
   var shineX      = -40;
