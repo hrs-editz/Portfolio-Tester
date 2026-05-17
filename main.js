@@ -339,43 +339,23 @@ function addColorGrade() {
 
 // Layout picker
 function applyCGLayout(val) {
-  DATA.cgLayout = val || 'grid2';
+  DATA.cgLayout = val || 'landscape';
   applyColorGradeLayoutClass();
-  // Show feedback bar
   var bar = document.getElementById('cg-layout-preview-bar');
   if (bar) bar.style.display = 'block';
-  // Re-render public section instantly so admin can see effect
   render();
 }
 
 function applyColorGradeLayoutClass() {
   var grid = document.getElementById('colorgrade-container');
   if (!grid) return;
-  var layout = DATA.cgLayout || 'grid2';
+  var layout = DATA.cgLayout || 'landscape';
+  // Only two classes: default (landscape) or layout-portrait
   grid.className = 'colorgrade-grid fade-up';
-  if (layout !== 'grid2') grid.classList.add('layout-' + layout);
-
-  // Alternate layout: wrap slider + body in separate divs
-  if (layout === 'alternate') {
-    var cards = grid.querySelectorAll('.cg-card');
-    cards.forEach(function(card) {
-      // Only restructure if not already done
-      if (!card.querySelector('.cg-card-body')) {
-        var slider = card.querySelector('.cg-slider-wrap, .cg-placeholder');
-        var rest   = Array.from(card.children).filter(function(el) { return el !== slider; });
-        var body   = document.createElement('div');
-        body.className = 'cg-card-body';
-        rest.forEach(function(el) { body.appendChild(el); });
-        card.appendChild(body);
-      }
-    });
-  }
-
+  if (layout === 'portrait') grid.classList.add('layout-portrait');
   // Sync radio buttons
   var radios = document.querySelectorAll('input[name="cg-layout"]');
-  radios.forEach(function(r) {
-    r.checked = (r.value === (DATA.cgLayout || 'grid2'));
-  });
+  radios.forEach(function(r) { r.checked = (r.value === layout); });
 }
 
 // Migrate old before/after video data to single driveUrl
@@ -605,7 +585,7 @@ function populateAdmin() {
   renderVideoEditor();
   renderColorGradeEditor();
   // Restore layout radio
-  var savedLayout = DATA.cgLayout || 'grid2';
+  var savedLayout = DATA.cgLayout || 'landscape';
   var radios = document.querySelectorAll('input[name="cg-layout"]');
   radios.forEach(function(r) { r.checked = (r.value === savedLayout); });
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
@@ -783,7 +763,7 @@ function applyChanges() {
 
   // Save layout choice
   var checkedLayout = document.querySelector('input[name="cg-layout"]:checked');
-  if (checkedLayout) DATA.cgLayout = checkedLayout.value;
+  DATA.cgLayout = (checkedLayout ? checkedLayout.value : null) || DATA.cgLayout || 'landscape';
 
   DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
     return {
