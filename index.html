@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="styles.css">
 <style>
 /* ── COLOR GRADE SECTION ── */
-#colorgrade { padding: 5rem 0; }
+#colorgrade { padding: 5rem 0; overflow: visible; }
 .colorgrade-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -175,20 +175,21 @@
 /* ── CG LAYOUT PICKER ── */
 .cg-layout-opt { cursor: pointer; }
 .cg-layout-icon {
-  display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
-  padding: 0.65rem 0.9rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 0.8rem 1.1rem;
   border: 1px solid var(--border, rgba(255,255,255,0.1));
   border-radius: 4px;
   color: var(--muted, #888);
   font-family: var(--font-mono, monospace);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   letter-spacing: 0.04em;
   transition: all 0.15s;
-  min-width: 70px;
+  min-width: 90px;
 }
-.cg-layout-icon svg { width: 48px; height: 32px; }
-.cg-layout-opt input:checked + .cg-layout-icon,
-.cg-layout-icon.active {
+.cg-layout-icon svg { display: block; }
+.cg-lo-landscape svg { width: 56px; height: 36px; }
+.cg-lo-portrait  svg { width: 36px; height: 56px; }
+.cg-layout-opt input:checked + .cg-layout-icon {
   border-color: var(--accent, #e8c547);
   color: var(--accent, #e8c547);
   background: rgba(232,197,71,0.07);
@@ -196,30 +197,24 @@
 .cg-layout-icon:hover { border-color: rgba(232,197,71,0.4); color: rgba(232,197,71,0.7); }
 
 /* ── CG PUBLIC LAYOUTS ── */
-/* grid2 (default) */
-.colorgrade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 2rem; margin-top: 2.5rem; }
-/* grid3 */
-.colorgrade-grid.layout-grid3 { grid-template-columns: repeat(3, 1fr); }
-/* stack */
-.colorgrade-grid.layout-stack { grid-template-columns: 1fr; max-width: 800px; margin-left: auto; margin-right: auto; }
-/* alternate */
-.colorgrade-grid.layout-alternate { display: flex; flex-direction: column; gap: 3rem; }
-.colorgrade-grid.layout-alternate .cg-card {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: 8px; overflow: hidden;
+/* Landscape default: 2-column grid, 16:9 slider */
+.colorgrade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 2rem;
+  margin-top: 2.5rem;
 }
-.colorgrade-grid.layout-alternate .cg-card:nth-child(even) { direction: rtl; }
-.colorgrade-grid.layout-alternate .cg-card:nth-child(even) > * { direction: ltr; }
-.colorgrade-grid.layout-alternate .cg-card .cg-slider-wrap,
-.colorgrade-grid.layout-alternate .cg-card .cg-placeholder { aspect-ratio: 16/9; }
-.colorgrade-grid.layout-alternate .cg-card-body { padding: 1.5rem 1.8rem; display: flex; flex-direction: column; justify-content: center; }
-/* masonry */
-.colorgrade-grid.layout-masonry { columns: 2; column-gap: 2rem; display: block; }
-.colorgrade-grid.layout-masonry .cg-card { break-inside: avoid; margin-bottom: 2rem; display: inline-block; width: 100%; }
+.colorgrade-grid .cg-slider-wrap { aspect-ratio: 16 / 9; }
+/* Portrait: 3-column grid, 9:16 slider */
+.colorgrade-grid.layout-portrait {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+.colorgrade-grid.layout-portrait .cg-slider-wrap { aspect-ratio: 9 / 16; }
 
 @media (max-width: 700px) {
-  .colorgrade-grid.layout-grid3 { grid-template-columns: 1fr; }
-  .colorgrade-grid.layout-alternate .cg-card { grid-template-columns: 1fr; }
-  .colorgrade-grid.layout-masonry { columns: 1; }
+  .colorgrade-grid { grid-template-columns: 1fr; }
+  .colorgrade-grid.layout-portrait { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 }
 </style></head>
 <body>
@@ -421,6 +416,7 @@
     <li><a href="#about">About</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#videos">Videos</a></li>
+    <li><a href="#colorgrade">Photo Editz</a></li>
     <li><a href="#experience">Experience</a></li>
     <li><a href="#contact">Contact</a></li>
   </ul>
@@ -444,8 +440,9 @@
     <li><a href="#about" onclick="closeDrawer()"><span class="link-num">01</span>About</a></li>
     <li><a href="#skills" onclick="closeDrawer()"><span class="link-num">02</span>Skills</a></li>
     <li><a href="#videos" onclick="closeDrawer()"><span class="link-num">04</span>Videos</a></li>
-    <li><a href="#experience" onclick="closeDrawer()"><span class="link-num">05</span>Experience</a></li>
-    <li><a href="#contact" onclick="closeDrawer()"><span class="link-num">06</span>Contact</a></li>
+    <li><a href="#colorgrade" onclick="closeDrawer()"><span class="link-num">05</span>Photo Editz</a></li>
+    <li><a href="#experience" onclick="closeDrawer()"><span class="link-num">06</span>Experience</a></li>
+    <li><a href="#contact" onclick="closeDrawer()"><span class="link-num">07</span>Contact</a></li>
   </ul>
   <div class="nav-drawer-footer">
     <a href="#contact" class="btn-primary" onclick="closeDrawer()">Hire Me</a>
@@ -627,9 +624,9 @@
   <div class="fade-up">
     <div class="section-eyebrow">Before &amp; After</div>
     <h2 class="section-title">Color <em style="font-style:italic;color:var(--accent)">Grade</em></h2>
-    <p class="section-sub">Drag the slider to compare raw footage with the final color grade.</p>
+    <p class="section-sub">Drag the slider to reveal the graded result.</p>
   </div>
-  <div class="colorgrade-grid fade-up" id="colorgrade-container"></div>
+  <div id="colorgrade-container" class="colorgrade-grid fade-up"></div>
 </section>
 
 <!-- EXPERIENCE -->
@@ -982,69 +979,41 @@
 
       <!-- LAYOUT PICKER -->
       <div style="margin-bottom:1.5rem;">
-        <label style="font-family:var(--font-mono);font-size:0.75rem;color:var(--muted);letter-spacing:0.06em;display:block;margin-bottom:0.75rem;">SECTION LAYOUT</label>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;" id="cg-layout-picker">
+        <label style="font-family:var(--font-mono);font-size:0.75rem;color:var(--muted);letter-spacing:0.06em;display:block;margin-bottom:0.75rem;">IMAGE ORIENTATION</label>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;" id="cg-layout-picker">
 
-          <label class="cg-layout-opt" title="2 columns grid">
-            <input type="radio" name="cg-layout" value="grid2" onchange="applyCGLayout(this.value)" style="display:none">
-            <div class="cg-layout-icon" id="cg-lo-grid2">
-              <svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="21" height="30" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="26" y="1" width="21" height="30" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-              <span>2 Column</span>
-            </div>
-          </label>
-
-          <label class="cg-layout-opt" title="3 columns grid">
-            <input type="radio" name="cg-layout" value="grid3" onchange="applyCGLayout(this.value)" style="display:none">
-            <div class="cg-layout-icon" id="cg-lo-grid3">
-              <svg viewBox="0 0 64 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="18" height="30" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="23" y="1" width="18" height="30" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="45" y="1" width="18" height="30" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-              <span>3 Column</span>
-            </div>
-          </label>
-
-          <label class="cg-layout-opt" title="Single wide stack">
-            <input type="radio" name="cg-layout" value="stack" onchange="applyCGLayout(this.value)" style="display:none">
-            <div class="cg-layout-icon" id="cg-lo-stack">
-              <svg viewBox="0 0 48 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="46" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="1" y="20" width="46" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-              <span>Full Width</span>
-            </div>
-          </label>
-
-          <label class="cg-layout-opt" title="Alternating left/right">
-            <input type="radio" name="cg-layout" value="alternate" onchange="applyCGLayout(this.value)" style="display:none">
-            <div class="cg-layout-icon" id="cg-lo-alternate">
+          <!-- LANDSCAPE -->
+          <label class="cg-layout-opt" title="Landscape (16:9 wide)">
+            <input type="radio" name="cg-layout" value="landscape" onchange="applyCGLayout(this.value)" style="display:none" checked>
+            <div class="cg-layout-icon" id="cg-lo-landscape">
               <svg viewBox="0 0 56 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="32" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="37" y="1" width="18" height="15" rx="2" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>
-                <rect x="23" y="20" width="32" height="15" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="1" y="20" width="18" height="15" rx="2" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>
+                <rect x="1" y="5" width="54" height="26" rx="3" stroke="currentColor" stroke-width="2"/>
+                <line x1="28" y1="5" x2="28" y2="31" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+                <text x="10" y="22" font-size="7" fill="currentColor" font-family="monospace" opacity="0.7">BEF</text>
+                <text x="33" y="22" font-size="7" fill="currentColor" font-family="monospace" opacity="0.7">AFT</text>
               </svg>
-              <span>Alternating</span>
+              <span>Landscape 16:9</span>
             </div>
           </label>
 
-          <label class="cg-layout-opt" title="Masonry / Pinterest style">
-            <input type="radio" name="cg-layout" value="masonry" onchange="applyCGLayout(this.value)" style="display:none">
-            <div class="cg-layout-icon" id="cg-lo-masonry">
-              <svg viewBox="0 0 56 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1" y="1" width="25" height="20" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="30" y="1" width="25" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="1" y="25" width="25" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                <rect x="30" y="17" width="25" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <!-- PORTRAIT -->
+          <label class="cg-layout-opt" title="Portrait (9:16 tall)">
+            <input type="radio" name="cg-layout" value="portrait" onchange="applyCGLayout(this.value)" style="display:none">
+            <div class="cg-layout-icon" id="cg-lo-portrait">
+              <svg viewBox="0 0 36 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="5" y="1" width="26" height="54" rx="3" stroke="currentColor" stroke-width="2"/>
+                <line x1="5" y1="28" x2="31" y2="28" stroke="currentColor" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+                <text x="10" y="20" font-size="6" fill="currentColor" font-family="monospace" opacity="0.7">BEF</text>
+                <text x="10" y="43" font-size="6" fill="currentColor" font-family="monospace" opacity="0.7">AFT</text>
               </svg>
-              <span>Masonry</span>
+              <span>Portrait 9:16</span>
             </div>
           </label>
 
+        </div>
+        <div style="margin-top:0.75rem;font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);line-height:1.6;">
+          <strong style="color:var(--accent);">Landscape</strong> — great for cinematic shots, wide scenes &nbsp;|&nbsp;
+          <strong style="color:var(--accent);">Portrait</strong> — great for Reels, people shots, mobile-style
         </div>
         <div id="cg-layout-preview-bar" style="margin-top:0.8rem;padding:0.65rem 1rem;background:rgba(232,197,71,0.06);border:1px solid rgba(232,197,71,0.18);border-radius:3px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);letter-spacing:0.04em;display:none;">
           ✅ Layout updated — click <strong>Save Changes</strong> then <strong>Publish</strong> to go live.
