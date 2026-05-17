@@ -1550,50 +1550,92 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowRight') cgLightboxNav(1);
 });
 
-/* ── SCROLL PROGRESS BAR + SCROLL-TO-TOP ── */
+/* ── SCROLL PROGRESS BAR + SCROLL-TO-TOP (fully JS-injected) ── */
 (function() {
-  var progressBar = document.getElementById('scroll-progress-bar');
-  var scrollBtn   = document.getElementById('scroll-top-btn');
 
+  /* ── 1. PROGRESS BAR ── */
+  var progressBar = document.getElementById('scroll-progress-bar');
+
+  /* ── 2. CREATE A FRESH SCROLL-TO-TOP BUTTON via JS ── */
+  /* Hide the old HTML button completely so styles.css can't interfere */
+  var oldBtn = document.getElementById('scroll-top-btn');
+  if (oldBtn) oldBtn.style.cssText = 'display:none!important;';
+
+  /* Build a brand-new button with a unique ID styles.css has never seen */
+  var sttBtn = document.createElement('button');
+  sttBtn.id = 'hrs-stt-btn';
+  sttBtn.title = 'Back to top';
+  sttBtn.setAttribute('aria-label', 'Scroll to top');
+  sttBtn.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<polyline points="4,13 10,6 16,13" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+
+  /* All styles inline — completely independent of any stylesheet */
+  sttBtn.style.cssText = [
+    'position:fixed',
+    'bottom:28px',
+    'right:28px',
+    'z-index:999999',
+    'width:48px',
+    'height:48px',
+    'border-radius:50%',
+    'background:#e8c547',
+    'border:none',
+    'cursor:pointer',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'box-shadow:0 4px 20px rgba(232,197,71,0.45)',
+    'opacity:0',
+    'visibility:hidden',
+    'transform:translateY(16px)',
+    'transition:opacity 0.3s ease,transform 0.3s ease,visibility 0.3s ease',
+    'outline:none',
+    'padding:0'
+  ].join(';');
+
+  sttBtn.addEventListener('click', function() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  sttBtn.addEventListener('mouseenter', function() {
+    sttBtn.style.background = '#f5d76e';
+    sttBtn.style.boxShadow  = '0 6px 28px rgba(232,197,71,0.65)';
+  });
+  sttBtn.addEventListener('mouseleave', function() {
+    sttBtn.style.background = '#e8c547';
+    sttBtn.style.boxShadow  = '0 4px 20px rgba(232,197,71,0.45)';
+  });
+
+  document.body.appendChild(sttBtn);
+
+  /* ── 3. SCROLL HANDLER ── */
   function onScroll() {
-    var scrollTop  = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-    var docHeight  = Math.max(
+    var scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+    var docHeight = Math.max(
       document.body.scrollHeight, document.body.offsetHeight,
       document.documentElement.scrollHeight, document.documentElement.offsetHeight
     ) - window.innerHeight;
     var pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
     pct = Math.min(100, Math.max(0, pct));
 
-    // Progress bar — set width directly with style attribute to bypass CSS specificity
-    if (progressBar) {
-      progressBar.style.setProperty('width', pct.toFixed(2) + '%', 'important');
-    }
+    /* Progress bar */
+    if (progressBar) progressBar.style.width = pct.toFixed(2) + '%';
 
-    // Scroll-to-top: show when scrolled 2% or more
-    if (scrollBtn) {
-      if (pct >= 2) {
-        scrollBtn.style.cssText = scrollBtn.style.cssText
-          .replace(/opacity\s*:[^;]+;?/gi, '')
-          .replace(/visibility\s*:[^;]+;?/gi, '')
-          .replace(/pointer-events\s*:[^;]+;?/gi, '');
-        scrollBtn.style.setProperty('opacity',        '1',    'important');
-        scrollBtn.style.setProperty('visibility',     'visible', 'important');
-        scrollBtn.style.setProperty('pointer-events', 'all',  'important');
-        scrollBtn.style.setProperty('transform',      'translateY(0)', 'important');
-      } else {
-        scrollBtn.style.setProperty('opacity',        '0',      'important');
-        scrollBtn.style.setProperty('visibility',     'hidden', 'important');
-        scrollBtn.style.setProperty('pointer-events', 'none',   'important');
-        scrollBtn.style.setProperty('transform',      'translateY(14px)', 'important');
-      }
+    /* Scroll-to-top: show after 2% scroll */
+    if (pct >= 2) {
+      sttBtn.style.opacity     = '1';
+      sttBtn.style.visibility  = 'visible';
+      sttBtn.style.transform   = 'translateY(0)';
+    } else {
+      sttBtn.style.opacity     = '0';
+      sttBtn.style.visibility  = 'hidden';
+      sttBtn.style.transform   = 'translateY(16px)';
     }
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
-  // Also run on resize (viewport height changes)
   window.addEventListener('resize', onScroll, { passive: true });
-  // Run after page fully loads
-  window.addEventListener('load', onScroll);
-  // Run immediately
-  setTimeout(onScroll, 100);
+  window.addEventListener('load',   onScroll);
+  setTimeout(onScroll, 200);
 })();
