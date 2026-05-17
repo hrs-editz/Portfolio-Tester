@@ -89,60 +89,9 @@ function render() {
   const videosHTML = DATA.videos.length === 0
     ? '<p style="color:var(--muted);font-family:var(--font-mono);font-size:0.85rem;padding:2rem 0;">No videos yet. Open the admin panel → Videos tab to add your work.</p>'
     : DATA.videos.map((v,i) => {
-        const isBeforeAfter = (v.type === 'beforeafter');
-        const isShort = (v.type === 'short');
-        const isThumbnailOnly = !!v.thumbnailOnly;
         const hasVideo = !!extractDriveId(v.driveUrl || '');
+        const isShort = (v.type === 'short');
         const hasPoster = v.posterData && v.posterData.length > 100;
-        const hasBeforeData = v.beforeData && v.beforeData.length > 100;
-        const hasAfterData  = v.afterData  && v.afterData.length  > 100;
-
-        // ── Before/After slider card ──
-        if (isBeforeAfter) {
-          if (!hasBeforeData && !hasAfterData) {
-            return '<div class="video-card" style="opacity:0.5;pointer-events:none;">' +
-              '<div class="video-thumb" style="display:flex;align-items:center;justify-content:center;background:#111;"><div class="video-thumb-placeholder">🔀</div></div>' +
-              '<div class="video-info"><div class="video-cat">' + v.cat + '</div><div class="video-title">' + v.title + '</div><div class="video-desc">Upload Before &amp; After images in admin panel</div></div></div>';
-          }
-          const beforeSrc = hasBeforeData ? v.beforeData : '';
-          const afterSrc  = hasAfterData  ? v.afterData  : '';
-          return '<div class="video-card ba-card" data-ba-idx="' + i + '">' +
-            '<div class="ba-slider-wrap">' +
-              '<div class="ba-img ba-after" style="background-image:url(\'' + afterSrc + '\')"></div>' +
-              '<div class="ba-img ba-before" style="background-image:url(\'' + beforeSrc + '\');clip-path:inset(0 50% 0 0)"></div>' +
-              '<div class="ba-divider">' +
-                '<div class="ba-handle"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 5l-5 7 5 7M16 5l5 7-5 7" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg></div>' +
-              '</div>' +
-              '<div class="ba-label ba-label-before">BEFORE</div>' +
-              '<div class="ba-label ba-label-after">AFTER</div>' +
-            '</div>' +
-            '<div class="video-info">' +
-              '<div class="video-cat">' + v.cat + '</div>' +
-              '<div class="video-title">' + v.title + '</div>' +
-              '<div class="video-desc">' + v.desc + '</div>' +
-              '<div class="video-tags">' + (v.tags||[]).map(t => '<span class="video-tag">' + t + '</span>').join('') + '</div>' +
-            '</div></div>';
-        }
-
-        // ── Thumbnail-only card (static image, no play, no lightbox) ──
-        if (isThumbnailOnly) {
-          const thumbSrc = hasPoster ? v.posterData : '';
-          return '<div class="video-card thumbnail-only-card">' +
-            '<div class="video-thumb">' +
-              (hasPoster
-                ? '<img src="' + thumbSrc + '" alt="' + v.title + '" style="width:100%;height:100%;object-fit:cover;">'
-                : '<div class="video-thumb-placeholder">🖼️</div>') +
-              '<div class="ba-label ba-label-after" style="top:0.6rem;left:0.6rem;right:auto;bottom:auto;">RESULT</div>' +
-            '</div>' +
-            '<div class="video-info">' +
-              '<div class="video-cat">' + v.cat + '</div>' +
-              '<div class="video-title">' + v.title + '</div>' +
-              '<div class="video-desc">' + v.desc + '</div>' +
-              '<div class="video-tags">' + (v.tags||[]).map(t => '<span class="video-tag">' + t + '</span>').join('') + '</div>' +
-            '</div></div>';
-        }
-
-        // ── Standard video card ──
         const thumbHTML = hasPoster
           ? '<img src="' + v.posterData + '" alt="' + v.title + '" style="width:100%;height:100%;object-fit:cover;">'
           : '<div class="video-thumb-placeholder">' + (isShort ? '📱' : '🎬') + '</div>';
@@ -163,7 +112,6 @@ function render() {
           '</div></div>';
       }).join('');
   setHTML('videos-container', videosHTML);
-  initBeforeAfterSliders();
 
   const tagColors = ['tag-gold','tag-red','tag-blue','tag-white'];
   setHTML('hero-tags', DATA.tags.map((t,i)=>`<span class="tag ${tagColors[i%4]}">${t}</span>`).join(''));
@@ -223,6 +171,170 @@ function render() {
         </div>
       </div>
     </div>`).join(''));
+
+  // COLOR GRADE
+  var cgData = DATA.colorGrades || [];
+  var cgSection = document.getElementById('colorgrade');
+  if (cgSection) cgSection.style.display = cgData.length === 0 ? 'none' : '';
+  setHTML('colorgrade-container', cgData.map((cg, i) => {
+    var hasBefore = cg.beforeData && cg.beforeData.length > 100;
+    var hasAfter  = cg.afterData  && cg.afterData.length > 100;
+    var sliderHtml = '';
+    if (hasBefore || hasAfter) {
+      sliderHtml = '<div class="cg-slider-wrap" id="cg-slider-' + i + '">' +
+        (hasAfter  ? '<img class="cg-img-after"  src="' + cg.afterData  + '" alt="After">'  : '') +
+        (hasBefore ? '<img class="cg-img-before" src="' + cg.beforeData + '" alt="Before">' : '') +
+        '<div class="cg-divider-line" id="cg-line-' + i + '"></div>' +
+        '<div class="cg-handle" id="cg-handle-' + i + '">' +
+          '<svg viewBox="0 0 20 20"><path d="M7 4l-4 6 4 6M13 4l4 6-4 6"/></svg>' +
+        '</div>' +
+        '<span class="cg-label-before">BEFORE</span>' +
+        '<span class="cg-label-after">AFTER</span>' +
+        '</div>';
+    } else {
+      sliderHtml = '<div class="cg-placeholder">🎨<span>Upload Before &amp; After images in admin panel</span></div>';
+    }
+    var tagsHtml = (cg.tags||[]).map(t => '<span class="cg-tag">' + t + '</span>').join('');
+    return '<div class="cg-card">' +
+      sliderHtml +
+      (cg.title ? '<div class="cg-card-title">' + cg.title + '</div>' : '') +
+      (cg.desc  ? '<div class="cg-card-desc">'  + cg.desc  + '</div>' : '') +
+      (tagsHtml ? '<div class="cg-tags">' + tagsHtml + '</div>' : '') +
+      '</div>';
+  }).join(''));
+
+  // Init sliders after DOM update
+  setTimeout(function() { initColorGradeSliders(); }, 50);
+}
+
+/* ── COLOR GRADE SLIDER ── */
+function initColorGradeSliders() {
+  var cgData = DATA.colorGrades || [];
+  cgData.forEach(function(cg, i) {
+    var wrap   = document.getElementById('cg-slider-' + i);
+    if (!wrap) return;
+    var before = wrap.querySelector('.cg-img-before');
+    var line   = document.getElementById('cg-line-'   + i);
+    var handle = document.getElementById('cg-handle-' + i);
+    if (!before || !line || !handle) return;
+
+    function setPos(pct) {
+      pct = Math.max(2, Math.min(98, pct));
+      before.style.clipPath = 'inset(0 ' + (100 - pct) + '% 0 0)';
+      line.style.left   = pct + '%';
+      handle.style.left = pct + '%';
+    }
+    setPos(50);
+
+    function onMove(clientX) {
+      var rect = wrap.getBoundingClientRect();
+      var pct  = ((clientX - rect.left) / rect.width) * 100;
+      setPos(pct);
+    }
+
+    // Mouse
+    wrap.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      onMove(e.clientX);
+      function mm(ev) { onMove(ev.clientX); }
+      function mu() { document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }
+      document.addEventListener('mousemove', mm);
+      document.addEventListener('mouseup', mu);
+    });
+
+    // Touch
+    wrap.addEventListener('touchstart', function(e) {
+      onMove(e.touches[0].clientX);
+    }, {passive: true});
+    wrap.addEventListener('touchmove', function(e) {
+      onMove(e.touches[0].clientX);
+    }, {passive: true});
+  });
+}
+
+/* ── COLOR GRADE ADMIN EDITOR ── */
+function renderColorGradeEditor() {
+  var c = document.getElementById('colorgrade-editor');
+  if (!c) return;
+  c.innerHTML = '';
+  var cgData = DATA.colorGrades || [];
+  cgData.forEach(function(cg, i) {
+    var hasBefore = cg.beforeData && cg.beforeData.length > 100;
+    var hasAfter  = cg.afterData  && cg.afterData.length > 100;
+    c.innerHTML +=
+      '<div class="admin-card" id="cg-card-' + i + '">' +
+      '<div class="admin-card-header">' +
+      '<span class="admin-card-title">Grade ' + (i+1) + ': ' + (cg.title||'Untitled') + '</span>' +
+      '<button class="admin-btn-remove" onclick="removeColorGrade(' + i + ')">Remove</button>' +
+      '</div>' +
+
+      // Upload row
+      '<div class="cg-upload-row">' +
+
+      // BEFORE box
+      '<div>' +
+      '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.4rem;letter-spacing:0.04em;">BEFORE (Raw)</div>' +
+      '<div class="cg-upload-box' + (hasBefore ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-before-' + i + '\').click()" id="cg-before-box-' + i + '">' +
+      (hasBefore ? '<img src="' + cg.beforeData + '" alt="Before">' : '') +
+      '<span class="cg-upload-tag before">BEFORE</span>' +
+      '<span class="cg-upload-label">' + (hasBefore ? '✅ Click to replace' : '🖼️ Click to upload') + '</span>' +
+      '</div>' +
+      '<input type="file" id="cg-before-' + i + '" accept="image/*" style="display:none" onchange="handleCGFile(event,' + i + ',\'before\')">' +
+      '</div>' +
+
+      // AFTER box
+      '<div>' +
+      '<div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--muted);margin-bottom:0.4rem;letter-spacing:0.04em;">AFTER (Graded)</div>' +
+      '<div class="cg-upload-box' + (hasAfter ? ' has-img' : '') + '" onclick="document.getElementById(\'cg-after-' + i + '\').click()" id="cg-after-box-' + i + '">' +
+      (hasAfter ? '<img src="' + cg.afterData + '" alt="After">' : '') +
+      '<span class="cg-upload-tag after">AFTER</span>' +
+      '<span class="cg-upload-label">' + (hasAfter ? '✅ Click to replace' : '🎨 Click to upload') + '</span>' +
+      '</div>' +
+      '<input type="file" id="cg-after-' + i + '" accept="image/*" style="display:none" onchange="handleCGFile(event,' + i + ',\'after\')">' +
+      '</div>' +
+
+      '</div>' + // end upload-row
+
+      '<div class="form-row">' +
+      '<div class="form-group"><label>Title</label><input type="text" id="cg-title-' + i + '" value="' + (cg.title||'') + '" placeholder="e.g. Golden Hour Grade"></div>' +
+      '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="cg-tags-' + i + '" value="' + (cg.tags||[]).join(', ') + '" placeholder="DaVinci Resolve, Teal & Orange"></div>' +
+      '</div>' +
+      '<div class="form-group"><label>Description (optional)</label><textarea id="cg-desc-' + i + '" rows="2" placeholder="Describe the look, mood, or technique...">' + (cg.desc||'') + '</textarea></div>' +
+
+      '</div>'; // end admin-card
+  });
+}
+
+function handleCGFile(event, i, side) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    if (!DATA.colorGrades) DATA.colorGrades = [];
+    if (side === 'before') {
+      DATA.colorGrades[i].beforeData = e.target.result;
+    } else {
+      DATA.colorGrades[i].afterData = e.target.result;
+    }
+    renderColorGradeEditor();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeColorGrade(i) {
+  if (!DATA.colorGrades) return;
+  DATA.colorGrades.splice(i, 1);
+  renderColorGradeEditor();
+}
+
+function addColorGrade() {
+  if (!DATA.colorGrades) DATA.colorGrades = [];
+  DATA.colorGrades.push({ title: 'New Grade', desc: '', tags: [], beforeData: '', afterData: '' });
+  renderColorGradeEditor();
+  setTimeout(function() {
+    var cards = document.querySelectorAll('#colorgrade-editor .admin-card');
+    if (cards.length) cards[cards.length-1].scrollIntoView({ behavior: 'smooth' });
+  }, 100);
 }
 
 // Migrate old before/after video data to single driveUrl
@@ -450,6 +562,7 @@ function populateAdmin() {
   set('edit-ejs-service', DATA.emailjsServiceId);
   set('edit-ejs-template', DATA.emailjsTemplateId);
   renderVideoEditor();
+  renderColorGradeEditor();
   renderSkillsEditor(); renderProjectsEditor(); renderExpEditor(); renderEduEditor(); renderTestiEditor();
 }
 
@@ -459,64 +572,11 @@ function renderVideoEditor() {
   if (!c) return;
   c.innerHTML = '';
   DATA.videos.forEach((v, i) => {
-    const hasDrive      = !!extractDriveId(v.driveUrl || '');
-    const hasPoster     = v.posterData && v.posterData.length > 100;
-    const hasBeforeData = v.beforeData && v.beforeData.length > 100;
-    const hasAfterData  = v.afterData  && v.afterData.length  > 100;
-    const isBA          = (v.type === 'beforeafter');
-    const isThumbOnly   = !!v.thumbnailOnly;
+    const hasDrive  = !!extractDriveId(v.driveUrl || '');
+    const hasPoster = v.posterData && v.posterData.length > 100;
 
     const driveIdHtml = hasDrive
       ? '<div style="margin-top:0.5rem;padding:0.5rem 0.8rem;background:rgba(232,197,71,0.08);border:1px solid rgba(232,197,71,0.2);border-radius:3px;font-family:var(--font-mono);font-size:0.72rem;color:var(--accent);">✅ Drive ID detected: ' + extractDriveId(v.driveUrl) + '</div>'
-      : '';
-
-    // Before/After image upload rows (shown only when type = beforeafter)
-    const baSection = isBA
-      ? '<div class="form-row">' +
-          '<div class="form-group">' +
-            '<label>🔙 Before Image</label>' +
-            '<div class="vid-upload-area" id="vid-before-area-' + i + '" onclick="document.getElementById(&apos;vid-before-' + i + '&apos;).click()">' +
-            (hasBeforeData ? '<span style="color:var(--accent)">✅ Before image uploaded</span>' : '<span>📂 Click to upload BEFORE image</span>') +
-            '</div>' +
-            '<input type="file" id="vid-before-' + i + '" accept="image/*" style="display:none" onchange="handleBeforeFile(event,' + i + ')">' +
-          '</div>' +
-          '<div class="form-group">' +
-            '<label>✨ After Image</label>' +
-            '<div class="vid-upload-area" id="vid-after-area-' + i + '" onclick="document.getElementById(&apos;vid-after-' + i + '&apos;).click()">' +
-            (hasAfterData ? '<span style="color:var(--accent)">✅ After image uploaded</span>' : '<span>📂 Click to upload AFTER image</span>') +
-            '</div>' +
-            '<input type="file" id="vid-after-' + i + '" accept="image/*" style="display:none" onchange="handleAfterFile(event,' + i + ')">' +
-          '</div>' +
-        '</div>'
-      : '';
-
-    // Drive URL row (hidden for before/after type)
-    const driveSection = !isBA
-      ? '<div class="form-group">' +
-          '<label>🎬 Video — Google Drive Share Link</label>' +
-          '<input type="text" id="vid-drive-url-' + i + '" placeholder="Paste Google Drive share link here..." value="' + (v.driveUrl || '') + '" oninput="previewDriveLink(&apos;drive&apos;,' + i + ')">' +
-          '<div id="vid-drive-preview-' + i + '">' + driveIdHtml + '</div>' +
-        '</div>'
-      : '';
-
-    // Thumbnail upload (always shown; for beforeafter it acts as card cover)
-    const posterSection =
-      '<div class="form-group">' +
-      '<label>🖼️ Thumbnail Image' + (isBA ? ' (optional cover for the card title area)' : ' (optional — shown on video card)') + '</label>' +
-      '<div class="vid-upload-area" id="vid-poster-area-' + i + '" onclick="document.getElementById(&apos;vid-poster-&apos;+' + i + '+&apos;&apos;).click()">' +
-      (hasPoster ? '<span style="color:var(--accent)">✅ Thumbnail uploaded</span>' : '<span>🖼️ Click to upload thumbnail (JPG/PNG)</span>') +
-      '</div>' +
-      '<input type="file" id="vid-poster-' + i + '" accept="image/*" style="display:none" onchange="handlePosterFile(event,' + i + ')">' +
-      '</div>';
-
-    // Thumbnail-only toggle (not available for beforeafter which is already image-only)
-    const thumbOnlyToggle = !isBA
-      ? '<div class="form-group" style="display:flex;align-items:center;gap:0.8rem;">' +
-          '<label style="margin:0;display:flex;align-items:center;gap:0.6rem;cursor:pointer;">' +
-            '<input type="checkbox" id="vid-thumbonly-' + i + '"' + (isThumbOnly ? ' checked' : '') + ' onchange="toggleThumbOnly(this,' + i + ')" style="width:16px;height:16px;accent-color:var(--accent);">' +
-            '<span>🖼️ <strong>Thumbnail-Only Mode</strong> — show image only, no play button or lightbox</span>' +
-          '</label>' +
-        '</div>'
       : '';
 
     c.innerHTML +=
@@ -526,24 +586,34 @@ function renderVideoEditor() {
       '<button class="admin-btn-remove" onclick="removeVideo(' + i + ')">Remove</button>' +
       '</div>' +
 
-      driveSection +
-      posterSection +
-      baSection +
+      '<div class="form-group">' +
+      '<label>🎬 Video — Google Drive Share Link</label>' +
+      '<input type="text" id="vid-drive-url-' + i + '" placeholder="Paste Google Drive share link here..." value="' + (v.driveUrl || '') + '" oninput="previewDriveLink(&apos;drive&apos;,' + i + ')">' +
+      '<div id="vid-drive-preview-' + i + '">' + driveIdHtml + '</div>' +
+      '</div>' +
+
+      '<div class="form-group">' +
+      '<label>🖼️ Thumbnail Image (optional — shown on video card)</label>' +
+      '<div class="vid-upload-area" id="vid-poster-area-' + i + '" onclick="document.getElementById(&apos;vid-poster-&apos;+' + i + '+&apos;&apos;).click()">' +
+      (hasPoster
+        ? '<span style="color:var(--accent)">✅ Thumbnail uploaded</span>'
+        : '<span>🖼️ Click to upload thumbnail (JPG/PNG)</span>') +
+      '</div>' +
+      '<input type="file" id="vid-poster-' + i + '" accept="image/*" style="display:none" onchange="handlePosterFile(event,' + i + ')">' +
+      '</div>' +
 
       '<div class="form-row">' +
       '<div class="form-group"><label>Category</label><input type="text" id="vid-cat-' + i + '" value="' + (v.cat||'') + '"></div>' +
       '<div class="form-group"><label>Title</label><input type="text" id="vid-title-' + i + '" value="' + (v.title||'') + '"></div>' +
       '</div>' +
       '<div class="form-row">' +
-      '<div class="form-group"><label>📐 Card Type</label>' +
-      '<select id="vid-type-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;" onchange="renderVideoEditor()">' +
+      '<div class="form-group"><label>📐 Video Type</label>' +
+      '<select id="vid-type-' + i + '" style="width:100%;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:2px;padding:0.8rem 1rem;color:var(--text);font-family:var(--font-body);font-size:0.88rem;outline:none;">' +
       '<option value="video"' + ((!v.type || v.type==='video') ? ' selected' : '') + '>🎬 Video (16:9 landscape)</option>' +
       '<option value="short"' + (v.type==='short' ? ' selected' : '') + '>📱 Short / Reel (9:16 portrait)</option>' +
-      '<option value="beforeafter"' + (v.type==='beforeafter' ? ' selected' : '') + '>🔀 Before/After Slider (images)</option>' +
       '</select></div>' +
       '<div class="form-group"><label>Tags (comma-separated)</label><input type="text" id="vid-tags-' + i + '" value="' + (v.tags||[]).join(', ') + '"></div>' +
       '</div>' +
-      thumbOnlyToggle +
       '<div class="form-group"><label>Description</label><textarea id="vid-desc-' + i + '" rows="2">' + (v.desc||'') + '</textarea></div>' +
       '</div>';
   });
@@ -576,66 +646,10 @@ function handlePosterFile(event, i) {
   reader.readAsDataURL(file);
 }
 
-function handleBeforeFile(event, i) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const area = document.getElementById('vid-before-area-' + i);
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    DATA.videos[i].beforeData = e.target.result;
-    area.innerHTML = '<span style="color:var(--accent)">✅ Before image ready — ' + file.name + '</span>';
-  };
-  reader.readAsDataURL(file);
-}
-
-function handleAfterFile(event, i) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const area = document.getElementById('vid-after-area-' + i);
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    DATA.videos[i].afterData = e.target.result;
-    area.innerHTML = '<span style="color:var(--accent)">✅ After image ready — ' + file.name + '</span>';
-  };
-  reader.readAsDataURL(file);
-}
-
-function toggleThumbOnly(checkbox, i) {
-  DATA.videos[i].thumbnailOnly = checkbox.checked;
-}
-
-function initBeforeAfterSliders() {
-  document.querySelectorAll('.ba-card').forEach(function(card) {
-    const wrap    = card.querySelector('.ba-slider-wrap');
-    const before  = card.querySelector('.ba-before');
-    const divider = card.querySelector('.ba-divider');
-    if (!wrap || !before || !divider) return;
-
-    function setPos(x) {
-      const rect  = wrap.getBoundingClientRect();
-      const pct   = Math.min(100, Math.max(0, ((x - rect.left) / rect.width) * 100));
-      before.style.clipPath  = 'inset(0 ' + (100 - pct) + '% 0 0)';
-      divider.style.left     = pct + '%';
-    }
-
-    // Initialise at 50%
-    setPos(wrap.getBoundingClientRect().left + wrap.getBoundingClientRect().width / 2);
-
-    let dragging = false;
-    divider.addEventListener('mousedown',  function(e) { dragging = true; e.preventDefault(); });
-    document.addEventListener('mouseup',   function()  { dragging = false; });
-    document.addEventListener('mousemove', function(e) { if (dragging) setPos(e.clientX); });
-
-    divider.addEventListener('touchstart', function(e) { dragging = true; e.preventDefault(); }, {passive:false});
-    document.addEventListener('touchend',  function()  { dragging = false; });
-    document.addEventListener('touchmove', function(e) { if (dragging) setPos(e.touches[0].clientX); }, {passive:true});
-  });
-}
-
 function removeVideo(i) { DATA.videos.splice(i, 1); renderVideoEditor(); }
 
 function addVideo() {
-  DATA.videos.push({title:'My Video',cat:'Category',desc:'Describe this video.',tags:['CapCut'],type:'video',driveUrl:'',posterData:'',beforeData:'',afterData:'',thumbnailOnly:false});
+  DATA.videos.push({title:'My Video',cat:'Category',desc:'Describe this video.',tags:['CapCut'],type:'video',driveUrl:'',posterData:''});
   renderVideoEditor();
   setTimeout(() => {
     const cards = document.querySelectorAll('#videos-editor .admin-card');
@@ -722,17 +736,24 @@ function applyChanges() {
   DATA.emailjsServiceId = get('edit-ejs-service');
   DATA.emailjsTemplateId = get('edit-ejs-template');
 
+  DATA.colorGrades = (DATA.colorGrades || []).map(function(cg, i) {
+    return {
+      title:      get('cg-title-' + i) || cg.title || '',
+      desc:       get('cg-desc-'  + i) || '',
+      tags:       (get('cg-tags-' + i)||'').split(',').map(function(s){return s.trim();}).filter(Boolean),
+      beforeData: cg.beforeData || '',
+      afterData:  cg.afterData  || ''
+    };
+  });
+
   DATA.videos = DATA.videos.map((v,i)=>({
-    driveUrl:      (document.getElementById('vid-drive-url-'+i) ? document.getElementById('vid-drive-url-'+i).value.trim() : (v.driveUrl||'')),
-    posterData:    v.posterData  || '',
-    beforeData:    v.beforeData  || '',
-    afterData:     v.afterData   || '',
-    thumbnailOnly: !!(document.getElementById('vid-thumbonly-'+i) ? document.getElementById('vid-thumbonly-'+i).checked : v.thumbnailOnly),
-    type:          (document.getElementById('vid-type-'+i) ? document.getElementById('vid-type-'+i).value : (v.type||'video')),
-    cat:   get('vid-cat-'+i),
+    driveUrl: (document.getElementById('vid-drive-url-'+i) ? document.getElementById('vid-drive-url-'+i).value.trim() : (v.driveUrl||'')),
+    posterData: v.posterData || '',
+    type: (document.getElementById('vid-type-'+i) ? document.getElementById('vid-type-'+i).value : (v.type||'video')),
+    cat: get('vid-cat-'+i),
     title: get('vid-title-'+i),
-    desc:  get('vid-desc-'+i),
-    tags:  get('vid-tags-'+i).split(',').map(s=>s.trim()).filter(Boolean)
+    desc: get('vid-desc-'+i),
+    tags: get('vid-tags-'+i).split(',').map(s=>s.trim()).filter(Boolean)
   }));
   DATA.skills = DATA.skills.map((_,i)=>({
     icon: get(`sk-icon-${i}`), title: get(`sk-title-${i}`),
@@ -827,12 +848,16 @@ async function compressDataImages(data) {
     const v = d.videos[i];
     if (v.posterData && v.posterData.startsWith('data:image'))
       v.posterData = await compressImage(v.posterData, 600, 0.60);
-    if (v.beforeData && v.beforeData.startsWith('data:image'))
-      v.beforeData = await compressImage(v.beforeData, 800, 0.65);
-    if (v.afterData && v.afterData.startsWith('data:image'))
-      v.afterData = await compressImage(v.afterData, 800, 0.65);
     delete v.videoData;
     delete v.fileName; delete v.mimeType;
+  }
+
+  for (let i = 0; i < (d.colorGrades||[]).length; i++) {
+    const cg = d.colorGrades[i];
+    if (cg.beforeData && cg.beforeData.startsWith('data:image'))
+      cg.beforeData = await compressImage(cg.beforeData, 900, 0.72);
+    if (cg.afterData && cg.afterData.startsWith('data:image'))
+      cg.afterData = await compressImage(cg.afterData, 900, 0.72);
   }
 
   return d;
