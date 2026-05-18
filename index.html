@@ -1238,40 +1238,51 @@
   <div class="footer-logo" id="footer-name">Hariharan R</div>
   <div>Editor · Colorist · Visual Storyteller</div>
   <div class="footer-mono" style="margin-top:1.5rem;">© 2025 · All Rights Reserved</div>
-  <div id="visitor-counter" style="margin-top:1.2rem;font-family:var(--font-mono,monospace);font-size:0.72rem;color:var(--muted,#888);letter-spacing:0.08em;display:flex;align-items:center;justify-content:center;gap:0.5rem;">
-    <span style="width:7px;height:7px;border-radius:50%;background:#2ecc71;display:inline-block;flex-shrink:0;"></span>
-    <span id="visit-count-label">Loading visitors...</span>
+  <!-- Visitor counter badge — loads in the visitor's browser, counts every page view -->
+  <div id="visitor-counter" style="margin-top:1.4rem;display:flex;align-items:center;justify-content:center;gap:0.6rem;flex-wrap:wrap;">
+    <!-- Primary: hits.seeyoufarm.com SVG badge (styled to match site) -->
+    <img
+      id="visit-badge-img"
+      src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fhrs-editz-portfolio&count_bg=%23e8c547&title_bg=%23111111&icon=eye.svg&icon_color=%23e8c547&title=Visitors&edge_flat=true"
+      alt="Visitor Count"
+      style="height:22px;border-radius:2px;"
+      onerror="this.style.display='none';document.getElementById('visit-counter-fallback').style.display='flex';"
+    >
+    <!-- Fallback: shown only if badge fails to load -->
+    <div id="visit-counter-fallback" style="display:none;align-items:center;gap:0.5rem;font-family:var(--font-mono,monospace);font-size:0.72rem;color:var(--muted,#888);letter-spacing:0.08em;">
+      <span id="visit-fallback-dot" style="width:7px;height:7px;border-radius:50%;background:#2ecc71;display:inline-block;flex-shrink:0;"></span>
+      <span id="visit-fallback-label">Visitor counter loading...</span>
+    </div>
   </div>
 </footer>
 
 <script>
 (function() {
-  // Visitor counter using CountAPI (free, no signup, persists across devices)
-  var NAMESPACE = 'hrs-editz-portfolio';
-  var KEY = 'page-visits';
-  var label = document.getElementById('visit-count-label');
+  // JS fallback counter using visitor-badge API
+  var fallback = document.getElementById('visit-counter-fallback');
+  var label = document.getElementById('visit-fallback-label');
+  var badge = document.getElementById('visit-badge-img');
 
-  function formatCount(n) {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-    return n.toString();
-  }
+  // Check if badge loaded after 3s; if not, show JS fallback
+  setTimeout(function() {
+    if (!badge || badge.naturalWidth === 0) {
+      badge && (badge.style.display = 'none');
+      fallback.style.display = 'flex';
 
-  // Hit the counter (increment on every page load)
-  fetch('https://api.countapi.xyz/hit/' + NAMESPACE + '/' + KEY)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data && data.value) {
-        label.textContent = formatCount(data.value) + ' total visitors';
-      } else {
-        label.textContent = '';
-      }
-    })
-    .catch(function() {
-      // Silently fail — don't break the page if API is down
-      label.textContent = '';
-      document.getElementById('visitor-counter').style.display = 'none';
-    });
+      // Try visitor-badge.laobi.icu JSON API
+      fetch('https://visitor-badge.laobi.icu/badge?page_id=hrs-editz.portfolio&format=json')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d && d.count) {
+            var n = parseInt(d.count);
+            var txt = n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
+            label.textContent = txt + ' total visitors';
+            document.getElementById('visit-fallback-dot').style.background = '#2ecc71';
+          }
+        })
+        .catch(function() { fallback.style.display = 'none'; });
+    }
+  }, 3000);
 })();
 </script>
 
