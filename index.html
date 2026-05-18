@@ -1267,40 +1267,51 @@
 </footer>
 
 <script>
+/* ── Firebase Realtime Database Visitor Counter ──────────────────
+   HOW TO SET UP (one-time, 5 minutes):
+   1. Go to https://console.firebase.google.com
+   2. Click "Add project" → name it "hrs-editz-counter" → Continue
+   3. Go to Build → Realtime Database → Create Database
+   4. Choose "Start in test mode" → Enable
+   5. Copy your DB URL (looks like https://hrs-editz-counter-default-rtdb.firebaseio.com)
+   6. Replace the DB_URL value below with your URL
+   7. Save & push to GitHub — counter works on ALL devices!
+──────────────────────────────────────────────────────────────── */
 (function(){
-  var primaryBadge  = document.getElementById('vc-badge');
-  var secondBadge   = document.getElementById('vc-badge2');
-  var fallback      = document.getElementById('vc-fallback');
-  var label         = document.getElementById('vc-text');
+  var DB_URL = 'https://hrs-editz-counter-default-rtdb.firebaseio.com';
+  var KEY    = 'portfolio/visits';
+  var numEl  = document.getElementById('vc-number');
+  var stEl   = document.getElementById('vc-status');
 
-  function trySecondary(){
-    // Show komarev badge
-    secondBadge.style.display = 'inline';
-    // Also try JSON API for text display
-    fetch('https://visitor-badge.laobi.icu/badge?page_id=hrs-editz.Portfolio-Tester&format=json')
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if(d && d.count){
-          var n = parseInt(d.count)||0;
-          label.textContent = (n>=1000?(n/1000).toFixed(1)+'K':n)+' total visitors';
-          fallback.style.display = 'flex';
-        }
-      }).catch(function(){});
+  function fmt(n){
+    if(n>=1000000) return (n/1000000).toFixed(1)+'M';
+    if(n>=1000)    return (n/1000).toFixed(1)+'K';
+    return ''+n;
   }
 
-  // If primary badge fails immediately
-  primaryBadge.addEventListener('error', function(){
-    this.style.display = 'none';
-    trySecondary();
-  });
-
-  // Also check after 5s in case onerror didn't fire
-  setTimeout(function(){
-    if(primaryBadge.naturalWidth === 0){
-      primaryBadge.style.display = 'none';
-      trySecondary();
-    }
-  }, 5000);
+  // Read current count
+  fetch(DB_URL+'/'+KEY+'.json')
+    .then(function(r){ return r.json(); })
+    .then(function(val){
+      var cur = (typeof val==='number' && val>0) ? val : 0;
+      var nxt = cur + 1;
+      // Write incremented count
+      return fetch(DB_URL+'/'+KEY+'.json',{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(nxt)
+      }).then(function(r){ return r.json(); })
+        .then(function(saved){
+          var n = typeof saved==='number' ? saved : nxt;
+          numEl.textContent = fmt(n);
+          stEl.textContent  = 'all time';
+        });
+    })
+    .catch(function(e){
+      // Firebase not configured yet — show a note
+      numEl.textContent = '—';
+      stEl.textContent  = 'setup Firebase (see code)';
+    });
 })();
 </script>
 
