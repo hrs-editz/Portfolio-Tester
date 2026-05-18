@@ -687,10 +687,7 @@
 <!-- SITE HEADER: Big logo + title on top, nav links below -->
 <div id="site-header">
   <div id="site-header-brand">
-    <div id="hrs-logo-wrap" style="position:relative;display:inline-flex;flex-shrink:0;">
-      <img id="site-header-logo-img" src="Test.png" alt="HRS Logo" style="height:52px;width:52px;object-fit:contain;border-radius:50%;display:block;">
-      <canvas id="hrs-logo-cvs" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;z-index:5;"></canvas>
-    </div>
+    <img id="site-header-logo-img" src="" alt="HARIHARAN EDITZ" style="display:none;">
     <div id="site-header-title">
       <span class="brand-main">HARIHARAN EDITZ</span>
       <span class="brand-sub">Video Editor · Colorist</span>
@@ -1238,6 +1235,11 @@
   <div class="footer-logo" id="footer-name">Hariharan R</div>
   <div>Editor · Colorist · Visual Storyteller</div>
   <div class="footer-mono" style="margin-top:1.5rem;">© 2025 · All Rights Reserved</div>
+  <div id="footer-visitor-wrap">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span id="footer-visitor-count">—</span>
+    <span>portfolio views</span>
+  </div>
 </footer>
 
 <!-- PASSWORD PROMPT -->
@@ -1611,266 +1613,81 @@
   <script src="intro.js"></script>
   <script src="ui.js"></script>
 
-<!-- HRS SHINE ANIMATION -->
+<!-- VISITOR COUNTER -->
 <style>
-@keyframes hrsSweep {
-  0%   { background-position: -300% center; }
-  100% { background-position:  300% center; }
+#footer-visitor-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 1.1rem;
+  padding: 0.38rem 1rem;
+  border: 1px solid rgba(232,197,71,0.22);
+  border-radius: 999px;
+  background: rgba(232,197,71,0.05);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  color: var(--muted, #888);
+  letter-spacing: 0.04em;
 }
-.hrs-text-active {
-  background: linear-gradient(100deg,
-    #9a6c00 0%, #e8c547 22%, #fff8b0 43%,
-    #ffffff 50%, #fff8b0 57%, #e8c547 78%, #9a6c00 100%
-  ) !important;
-  background-size: 300% auto !important;
-  -webkit-background-clip: text !important;
-  background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  animation: hrsSweep 0.95s cubic-bezier(0.4,0,0.2,1) forwards !important;
+#footer-visitor-wrap svg {
+  color: var(--accent, #e8c547);
+  flex-shrink: 0;
 }
+#footer-visitor-count {
+  color: var(--accent, #e8c547);
+  font-weight: 600;
+  min-width: 2ch;
+  text-align: right;
+}
+@keyframes hrsFVPop {
+  0%   { opacity:0; transform:scale(0.8); }
+  65%  { transform:scale(1.1); }
+  100% { opacity:1; transform:scale(1); }
+}
+.hrs-fv-pop { animation: hrsFVPop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 </style>
+
 <script>
 (function () {
-  'use strict';
+  var NAMESPACE   = 'hrs-editz-portfolio';
+  var KEY         = 'visitors';
+  var SESSION_KEY = 'hrs_counted';
+  var alreadyCounted = sessionStorage.getItem(SESSION_KEY);
+  var endpoint = alreadyCounted
+    ? ('https://api.countapi.xyz/get/' + NAMESPACE + '/' + KEY)
+    : ('https://api.countapi.xyz/hit/' + NAMESPACE + '/' + KEY);
 
-  var INTERVAL  = 5000;   // ms between shines
-  var SHINE_DUR = 950;    // must match CSS animation duration
-  var FAV_FPS   = 30;     // favicon redraws per second (throttled)
-  var FAV_INTERVAL = 1000 / FAV_FPS;
+  function fmt(n) { return Number(n).toLocaleString(); }
 
-  /* ── Elements ── */
-  var textEl   = null;
-  var logoCvs  = null;
-  var logoCtx  = null;
-  var logoImg  = null;
-  var favLink  = null;
-
-  /* ── Favicon canvas (off-screen, reused) ── */
-  var FAV = 64;
-  var favCvs = document.createElement('canvas');
-  favCvs.width = favCvs.height = FAV;
-  var favCtx = favCvs.getContext('2d');
-
-  /* Source image for favicon */
-  var favImg = new Image();
-  favImg.crossOrigin = 'anonymous';
-
-  /* ── State ── */
-  var shineStart    = null;   // Date.now() when current shine began
-  var shineRunning  = false;
-  var nextShineTime = null;   // absolute time for next shine
-  var favLastDraw   = 0;      // throttle favicon redraws
-
-  /* ─────────────────────────────
-     FAVICON helpers
-  ───────────────────────────────*/
-  function favDrawBase() {
-    favCtx.clearRect(0, 0, FAV, FAV);
-    favCtx.save();
-    favCtx.beginPath();
-    favCtx.arc(FAV/2, FAV/2, FAV/2, 0, Math.PI*2);
-    favCtx.clip();
-    if (favImg.complete && favImg.naturalWidth) {
-      favCtx.drawImage(favImg, 0, 0, FAV, FAV);
-    } else {
-      favCtx.fillStyle = '#111';
-      favCtx.fillRect(0, 0, FAV, FAV);
-      favCtx.fillStyle = '#e8c547';
-      favCtx.font = 'bold 28px sans-serif';
-      favCtx.textAlign = 'center';
-      favCtx.textBaseline = 'middle';
-      favCtx.fillText('H', FAV/2, FAV/2);
-    }
-    favCtx.restore();
+  function animateCount(el, target) {
+    if (!el) return;
+    el.classList.add('hrs-fv-pop');
+    var duration = 1200, startTime = null;
+    (function step(ts) {
+      if (!startTime) startTime = ts;
+      var p = Math.min((ts - startTime) / duration, 1);
+      var ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(Math.round(target * ease));
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = fmt(target);
+    })(performance.now());
   }
 
-  function favDrawRing() {
-    favCtx.save();
-    favCtx.beginPath();
-    favCtx.arc(FAV/2, FAV/2, FAV/2 - 1.5, 0, Math.PI*2);
-    favCtx.strokeStyle = 'rgba(232,197,71,0.85)';
-    favCtx.lineWidth = 2.5;
-    favCtx.stroke();
-    favCtx.restore();
+  function show(count) {
+    animateCount(document.getElementById('footer-visitor-count'), count);
+    if (!alreadyCounted) sessionStorage.setItem(SESSION_KEY, '1');
   }
 
-  function favDrawShine(progress) {
-    /* progress 0→1 */
-    var x = -FAV*0.3 + (FAV*1.6) * progress;
-    favCtx.save();
-    favCtx.beginPath();
-    favCtx.arc(FAV/2, FAV/2, FAV/2, 0, Math.PI*2);
-    favCtx.clip();
-    var bw = FAV * 0.32;
-    var g = favCtx.createLinearGradient(x - bw, 0, x + bw, FAV);
-    g.addColorStop(0,   'rgba(255,255,255,0)');
-    g.addColorStop(0.3, 'rgba(255,245,160,0.22)');
-    g.addColorStop(0.5, 'rgba(255,255,255,0.70)');
-    g.addColorStop(0.7, 'rgba(255,245,160,0.22)');
-    g.addColorStop(1,   'rgba(255,255,255,0)');
-    favCtx.fillStyle = g;
-    favCtx.fillRect(0, 0, FAV, FAV);
-    favCtx.restore();
-  }
-
-  /* Only push favicon to <link> when throttle allows */
-  function favPush(now) {
-    if (now - favLastDraw < FAV_INTERVAL) return;
-    favLastDraw = now;
-    favLink.href = favCvs.toDataURL('image/png');
-  }
-
-  /* ─────────────────────────────
-     LOGO canvas helper
-  ───────────────────────────────*/
-  function logoDrawShine(progress) {
-    if (!logoCtx || !logoCvs) return;
-    var W = logoCvs.width  || 52;
-    var H = logoCvs.height || 52;
-    logoCtx.clearRect(0, 0, W, H);
-    var bw = W * 0.42;
-    var x  = -bw + (W + bw*2) * progress;
-    logoCtx.save();
-    logoCtx.beginPath();
-    logoCtx.arc(W/2, H/2, Math.min(W,H)/2, 0, Math.PI*2);
-    logoCtx.clip();
-    var g = logoCtx.createLinearGradient(x - bw, 0, x + bw, H);
-    g.addColorStop(0,   'rgba(255,255,255,0)');
-    g.addColorStop(0.3, 'rgba(255,248,160,0.18)');
-    g.addColorStop(0.5, 'rgba(255,255,255,0.68)');
-    g.addColorStop(0.7, 'rgba(255,248,160,0.18)');
-    g.addColorStop(1,   'rgba(255,255,255,0)');
-    logoCtx.fillStyle = g;
-    logoCtx.fillRect(0, 0, W, H);
-    logoCtx.restore();
-  }
-
-  /* ─────────────────────────────
-     MAIN TICK — runs via setInterval
-     Works even when tab is hidden
-  ───────────────────────────────*/
-  function tick() {
-    var now = Date.now();
-
-    /* Check if it's time to start a new shine */
-    if (!shineRunning && nextShineTime !== null && now >= nextShineTime) {
-      startShine(now);
-    }
-
-    if (shineRunning) {
-      var elapsed  = now - shineStart;
-      var progress = Math.min(elapsed / SHINE_DUR, 1);
-
-      /* Favicon */
-      favDrawBase();
-      favDrawShine(progress);
-      favDrawRing();
-      favPush(now);
-
-      /* Logo canvas */
-      logoDrawShine(progress);
-
-      if (progress >= 1) {
-        /* Shine finished */
-        shineRunning = false;
-        nextShineTime = now + INTERVAL;
-        /* Clear logo canvas */
-        if (logoCtx) logoCtx.clearRect(0, 0, logoCvs.width, logoCvs.height);
-        /* Redraw clean favicon */
-        favDrawBase();
-        favDrawRing();
-        favLink.href = favCvs.toDataURL('image/png');
-      }
-    }
-  }
-
-  /* ─────────────────────────────
-     TEXT shine (CSS, rAF-based)
-     rAF is fine for visible-tab
-     text; we re-trigger via
-     visibilitychange too
-  ───────────────────────────────*/
-  function startTextShine() {
-    if (!textEl) return;
-    textEl.classList.remove('hrs-text-active');
-    void textEl.offsetWidth;
-    textEl.classList.add('hrs-text-active');
-    textEl.addEventListener('animationend', function () {
-      textEl.classList.remove('hrs-text-active');
-    }, { once: true });
-  }
-
-  function startShine(now) {
-    shineRunning = true;
-    shineStart   = now;
-    startTextShine();
-  }
-
-  /* ─────────────────────────────
-     VISIBILITY — resume when
-     user switches back to tab
-  ───────────────────────────────*/
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') {
-      /* If a shine was due while hidden, fire immediately */
-      var now = Date.now();
-      if (!shineRunning && nextShineTime !== null && now >= nextShineTime) {
-        startShine(now);
-      }
-    }
-  });
-
-  /* ─────────────────────────────
-     BOOT
-  ───────────────────────────────*/
-  function boot() {
-    textEl  = document.querySelector('.brand-main');
-    logoCvs = document.getElementById('hrs-logo-cvs');
-    logoImg = document.getElementById('site-header-logo-img');
-    favLink = document.querySelector("link[rel~='icon']");
-
-    if (!favLink) {
-      favLink = document.createElement('link');
-      favLink.rel  = 'icon';
-      favLink.type = 'image/png';
-      document.head.appendChild(favLink);
-    }
-
-    /* Size the logo canvas to match the img */
-    if (logoCvs && logoImg) {
-      logoCtx = logoCvs.getContext('2d');
-      function sizeCanvas() {
-        logoCvs.width  = logoImg.offsetWidth  || 52;
-        logoCvs.height = logoImg.offsetHeight || 52;
-      }
-      sizeCanvas();
-      window.addEventListener('resize', sizeCanvas);
-    }
-
-    /* Draw static favicon immediately */
-    favDrawBase();
-    favDrawRing();
-    favLink.href = favCvs.toDataURL('image/png');
-
-    /* Schedule first shine */
-    nextShineTime = Date.now() + 1500;
-
-    /* Tick every ~16 ms (≈60fps for logo canvas smoothness)
-       setInterval keeps running even on hidden tabs */
-    setInterval(tick, 16);
-  }
-
-  /* Point favImg at logo source */
-  var existingFav = document.querySelector("link[rel~='icon']");
-  var favSrc = (existingFav && existingFav.href && existingFav.href.indexOf('data:') === -1)
-    ? existingFav.href : 'Test.png';
-  favImg.src = favSrc;
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  fetch(endpoint)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if (d && typeof d.value === 'number') show(d.value); })
+    .catch(function() {
+      /* localStorage fallback if API unreachable */
+      var lk = 'hrs_visit_count';
+      var n  = parseInt(localStorage.getItem(lk) || '0', 10);
+      if (!alreadyCounted) { n++; localStorage.setItem(lk, n); }
+      show(n);
+    });
 })();
 </script>
 </body></html>
