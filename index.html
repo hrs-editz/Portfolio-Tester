@@ -2,7 +2,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HARIHARAN'S Portfolio</title>
-<link rel="icon" type="image/png" sizes="128x128" href="Test.png" id="favicon">
+<link rel="icon" type="image/png" sizes="128x128" href="Test.png">
 
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
@@ -563,58 +563,6 @@
   transform: translateY(0) !important;
   visibility: visible !important;
 }
-
-/* ── GOLDEN SHINE ANIMATION ── */
-@keyframes gold-shine-sweep {
-  0%   { background-position: -300% center; }
-  100% { background-position: 300% center; }
-}
-
-/* Header brand text shine */
-#site-header-brand { position: relative; }
-.brand-main {
-  display: inline-block;
-  background: linear-gradient(
-    105deg,
-    #e8c547 0%, #e8c547 38%,
-    #fff9c4 44%, #ffffff 50%,
-    #fff9c4 56%, #e8c547 62%,
-    #e8c547 100%
-  );
-  background-size: 300% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gold-shine-sweep 0.9s ease-in-out;
-  animation-play-state: paused;
-}
-.brand-main.shine-on { animation: gold-shine-sweep 0.9s ease-in-out; }
-
-/* Intro logo ring shine */
-#ci-logo-inner { position: relative; }
-#hrs-logo-shine {
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 30;
-  background: linear-gradient(
-    115deg,
-    transparent 25%,
-    rgba(255,248,180,0.15) 40%,
-    rgba(255,255,255,0.75) 50%,
-    rgba(255,248,180,0.15) 60%,
-    transparent 75%
-  );
-  background-size: 300% auto;
-  background-position: -300% center;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-#hrs-logo-shine.shine-on {
-  opacity: 1;
-  animation: gold-shine-sweep 0.9s ease-in-out forwards;
-}
 </style></head>
 <body>
 
@@ -688,7 +636,6 @@
           <line x1="61" y1="28" x2="61" y2="42" stroke="rgba(0,0,0,0.3)" stroke-width="5"/>
           <polygon points="34,53 34,67 50,60" fill="#e8c547" opacity="0.85"/>
         </svg>
-        <div id="hrs-logo-shine"></div>
       </div>
     </div>
 
@@ -1661,128 +1608,71 @@
   <script src="intro.js"></script>
   <script src="ui.js"></script>
 
-  <!-- ══ GOLDEN SHINE CONTROLLER ══ -->
-  <script>
-  (function () {
-    var INTERVAL = 5000; // ms between shines
+<style>
+@keyframes hrsGoldSweep {
+  0%   { background-position: -300% center; }
+  100% { background-position:  300% center; }
+}
+.hrs-shine-on {
+  background: linear-gradient(100deg,#a06800 0%,#e8c547 25%,#fff8b0 44%,#ffffff 50%,#fff8b0 56%,#e8c547 75%,#a06800 100%) !important;
+  background-size: 300% auto !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  animation: hrsGoldSweep 1s ease-in-out forwards !important;
+}
+</style>
 
-    /* ── 1. HEADER BRAND TEXT shine via CSS class toggle ── */
-    function shineText() {
-      var el = document.querySelector('.brand-main');
-      if (!el) return;
-      el.classList.remove('shine-on');
-      // Force reflow so animation restarts
-      void el.offsetWidth;
-      el.classList.add('shine-on');
-      setTimeout(function () { el.classList.remove('shine-on'); }, 1000);
-    }
+<script>
+/* HEADER LOGO GOLDEN SHINE */
+(function(){
+  function runShine(){
+    var el=document.querySelector('.brand-main');
+    if(!el)return;
+    el.classList.remove('hrs-shine-on');
+    void el.offsetWidth;
+    el.classList.add('hrs-shine-on');
+    el.addEventListener('animationend',function(){el.classList.remove('hrs-shine-on');},{once:true});
+  }
+  setTimeout(function(){runShine();setInterval(runShine,5000);},1500);
+})();
 
-    /* ── 2. INTRO LOGO RING shine via CSS class toggle ── */
-    function shineLogo() {
-      var el = document.getElementById('hrs-logo-shine');
-      if (!el) return;
-      el.classList.remove('shine-on');
-      void el.offsetWidth;
-      el.classList.add('shine-on');
-      setTimeout(function () { el.classList.remove('shine-on'); }, 1000);
-    }
+/* FAVICON GOLDEN SHINE */
+(function(){
+  var SIZE=64,cvs=document.createElement('canvas');
+  cvs.width=cvs.height=SIZE;
+  var ctx=cvs.getContext('2d');
+  var link=document.querySelector("link[rel~='icon']");
+  if(!link){link=document.createElement('link');link.rel='icon';link.type='image/png';document.head.appendChild(link);}
+  var img=new Image();img.crossOrigin='anonymous';
+  var href=link.href;
+  if(href&&href.indexOf('data:')===-1)img.src=href;
+  var shineX=-40,shineActive=false,shineSpeed=1.5,lastTime=0,started=false,INTERVAL=5000;
+  function drawBase(){
+    ctx.clearRect(0,0,SIZE,SIZE);ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2,0,Math.PI*2);ctx.clip();
+    if(img.complete&&img.naturalWidth){ctx.drawImage(img,0,0,SIZE,SIZE);}
+    else{ctx.fillStyle='#111';ctx.fillRect(0,0,SIZE,SIZE);ctx.fillStyle='#e8c547';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('H',SIZE/2,SIZE/2);}
+    ctx.restore();
+  }
+  function drawShine(){
+    ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2,0,Math.PI*2);ctx.clip();
+    var g=ctx.createLinearGradient(shineX-22,0,shineX+22,SIZE);
+    g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(0.3,'rgba(255,245,160,0.2)');g.addColorStop(0.5,'rgba(255,255,255,0.65)');g.addColorStop(0.7,'rgba(255,245,160,0.2)');g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=g;ctx.fillRect(shineX-35,0,75,SIZE);ctx.restore();
+  }
+  function drawRing(){ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2-1.5,0,Math.PI*2);ctx.strokeStyle='rgba(232,197,71,0.85)';ctx.lineWidth=2.5;ctx.stroke();ctx.restore();}
+  function animate(ts){
+    requestAnimationFrame(animate);
+    if(!started){lastTime=ts;started=true;}
+    if(!shineActive&&ts-lastTime>=INTERVAL){shineActive=true;shineX=-40;}
+    drawBase();
+    if(shineActive){drawShine();shineX+=shineSpeed;if(shineX>SIZE+40){shineActive=false;lastTime=ts;}}
+    drawRing();
+    link.href=cvs.toDataURL('image/png');
+  }
+  function start(){requestAnimationFrame(animate);}
+  if(img.src){img.complete&&img.naturalWidth?start():(img.onload=img.onerror=start);}else{start();}
+})();
+</script>
 
-    /* ── 3. FAVICON animated shine via Canvas ── */
-    var SIZE = 64;
-    var cvs  = document.createElement('canvas');
-    cvs.width = cvs.height = SIZE;
-    var ctx  = cvs.getContext('2d');
-    var faviconLink = document.getElementById('favicon');
-
-    var faviconImg = new Image();
-    // Use the exact same filename as your href (case-sensitive on servers)
-    faviconImg.src = 'Test.png';
-
-    var shineX = -40, shineActive = false, shineSpeed = 1.4;
-    var lastTime = 0, started = false;
-
-    function fav_drawBase() {
-      ctx.clearRect(0, 0, SIZE, SIZE);
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI*2);
-      ctx.clip();
-      if (faviconImg.complete && faviconImg.naturalWidth > 0) {
-        ctx.drawImage(faviconImg, 0, 0, SIZE, SIZE);
-      } else {
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, SIZE, SIZE);
-        ctx.fillStyle = '#e8c547';
-        ctx.font = 'bold 28px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('H', SIZE/2, SIZE/2);
-      }
-      ctx.restore();
-    }
-
-    function fav_drawShine() {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(SIZE/2, SIZE/2, SIZE/2, 0, Math.PI*2);
-      ctx.clip();
-      var g = ctx.createLinearGradient(shineX - 20, 0, shineX + 20, SIZE);
-      g.addColorStop(0,    'rgba(255,255,255,0)');
-      g.addColorStop(0.35, 'rgba(255,245,180,0.2)');
-      g.addColorStop(0.5,  'rgba(255,255,255,0.65)');
-      g.addColorStop(0.65, 'rgba(255,245,180,0.2)');
-      g.addColorStop(1,    'rgba(255,255,255,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(shineX - 30, 0, 70, SIZE);
-      ctx.restore();
-    }
-
-    function fav_drawRing() {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(SIZE/2, SIZE/2, SIZE/2 - 1.5, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(232,197,71,0.8)';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    function fav_animate(ts) {
-      requestAnimationFrame(fav_animate);
-      if (!started) { lastTime = ts; started = true; }
-      if (!shineActive && ts - lastTime >= INTERVAL) {
-        shineActive = true;
-        shineX = -40;
-      }
-      fav_drawBase();
-      if (shineActive) {
-        fav_drawShine();
-        shineX += shineSpeed;
-        if (shineX > SIZE + 40) { shineActive = false; lastTime = ts; }
-      }
-      fav_drawRing();
-      if (faviconLink) faviconLink.href = cvs.toDataURL('image/png');
-    }
-
-    /* ── Boot everything ── */
-    function boot() {
-      // Start favicon loop
-      requestAnimationFrame(fav_animate);
-
-      // Shine logo immediately then every 5s
-      shineLogo();
-      shineText();
-      setInterval(function () {
-        shineLogo();
-        shineText();
-      }, INTERVAL);
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', boot);
-    } else {
-      boot();
-    }
-  })();
-  </script>
 </body></html>
