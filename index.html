@@ -687,7 +687,10 @@
 <!-- SITE HEADER: Big logo + title on top, nav links below -->
 <div id="site-header">
   <div id="site-header-brand">
-    <img id="site-header-logo-img" src="" alt="HARIHARAN EDITZ" style="display:none;">
+    <div id="hrs-logo-shine-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <img id="site-header-logo-img" src="Test.png" alt="HRS Logo" style="height:52px;width:52px;object-fit:contain;border-radius:50%;display:block;">
+      <canvas id="hrs-logo-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:50%;pointer-events:none;z-index:5;"></canvas>
+    </div>
     <div id="site-header-title">
       <span class="brand-main">HARIHARAN EDITZ</span>
       <span class="brand-sub">Video Editor · Colorist</span>
@@ -1608,71 +1611,201 @@
   <script src="intro.js"></script>
   <script src="ui.js"></script>
 
+<!-- ═══════════════════════════════════════════════════════
+     HRS GOLD SHINE — favicon + header logo + header text
+     All three fire at exactly the same time, every 5 s
+     ═══════════════════════════════════════════════════════ -->
 <style>
-@keyframes hrsGoldSweep {
+@keyframes hrsTextShine {
   0%   { background-position: -300% center; }
   100% { background-position:  300% center; }
 }
-.hrs-shine-on {
-  background: linear-gradient(100deg,#a06800 0%,#e8c547 25%,#fff8b0 44%,#ffffff 50%,#fff8b0 56%,#e8c547 75%,#a06800 100%) !important;
+.hrs-text-shine {
+  background: linear-gradient(
+    100deg,
+    #b07d10 0%,
+    #e8c547 22%,
+    #fff8b0 42%,
+    #ffffff 50%,
+    #fff8b0 58%,
+    #e8c547 78%,
+    #b07d10 100%
+  ) !important;
   background-size: 300% auto !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
-  animation: hrsGoldSweep 1s ease-in-out forwards !important;
+  animation: hrsTextShine 1s ease-in-out forwards !important;
 }
 </style>
-
 <script>
-/* HEADER LOGO GOLDEN SHINE */
-(function(){
-  function runShine(){
-    var el=document.querySelector('.brand-main');
-    if(!el)return;
-    el.classList.remove('hrs-shine-on');
-    void el.offsetWidth;
-    el.classList.add('hrs-shine-on');
-    el.addEventListener('animationend',function(){el.classList.remove('hrs-shine-on');},{once:true});
-  }
-  setTimeout(function(){runShine();setInterval(runShine,5000);},1500);
-})();
+(function () {
+  var INTERVAL = 5000;   // every 5 s
+  var SHINE_MS = 1000;   // shine duration matches CSS
 
-/* FAVICON GOLDEN SHINE */
-(function(){
-  var SIZE=64,cvs=document.createElement('canvas');
-  cvs.width=cvs.height=SIZE;
-  var ctx=cvs.getContext('2d');
-  var link=document.querySelector("link[rel~='icon']");
-  if(!link){link=document.createElement('link');link.rel='icon';link.type='image/png';document.head.appendChild(link);}
-  var img=new Image();img.crossOrigin='anonymous';
-  var href=link.href;
-  if(href&&href.indexOf('data:')===-1)img.src=href;
-  var shineX=-40,shineActive=false,shineSpeed=1.5,lastTime=0,started=false,INTERVAL=5000;
-  function drawBase(){
-    ctx.clearRect(0,0,SIZE,SIZE);ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2,0,Math.PI*2);ctx.clip();
-    if(img.complete&&img.naturalWidth){ctx.drawImage(img,0,0,SIZE,SIZE);}
-    else{ctx.fillStyle='#111';ctx.fillRect(0,0,SIZE,SIZE);ctx.fillStyle='#e8c547';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('H',SIZE/2,SIZE/2);}
-    ctx.restore();
+  /* ── 1. FAVICON canvas ── */
+  var FAV_SIZE = 64;
+  var favCvs   = document.createElement('canvas');
+  favCvs.width = favCvs.height = FAV_SIZE;
+  var favCtx   = favCvs.getContext('2d');
+  var favLink  = document.querySelector("link[rel~='icon']");
+  if (!favLink) {
+    favLink = document.createElement('link');
+    favLink.rel  = 'icon'; favLink.type = 'image/png';
+    document.head.appendChild(favLink);
   }
-  function drawShine(){
-    ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2,0,Math.PI*2);ctx.clip();
-    var g=ctx.createLinearGradient(shineX-22,0,shineX+22,SIZE);
-    g.addColorStop(0,'rgba(255,255,255,0)');g.addColorStop(0.3,'rgba(255,245,160,0.2)');g.addColorStop(0.5,'rgba(255,255,255,0.65)');g.addColorStop(0.7,'rgba(255,245,160,0.2)');g.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=g;ctx.fillRect(shineX-35,0,75,SIZE);ctx.restore();
+  var favImg = new Image();
+  favImg.crossOrigin = 'anonymous';
+  var favOrigHref = favLink.href || '';
+  if (favOrigHref && favOrigHref.indexOf('data:') === -1) favImg.src = favOrigHref;
+
+  /* ── 2. Header logo canvas ── */
+  var logoCvs = document.getElementById('hrs-logo-canvas');
+  var logoImg = document.getElementById('site-header-logo-img');
+  var logoCtx = logoCvs ? logoCvs.getContext('2d') : null;
+
+  /* ── 3. Text element ── */
+  var textEl = document.querySelector('.brand-main');
+
+  /* ─────────────────────────────────
+     DRAW helpers
+  ───────────────────────────────── */
+  function drawFavBase() {
+    var S = FAV_SIZE, cx = S/2, cy = S/2;
+    favCtx.clearRect(0,0,S,S);
+    favCtx.save();
+    favCtx.beginPath(); favCtx.arc(cx,cy,S/2,0,Math.PI*2); favCtx.clip();
+    if (favImg.complete && favImg.naturalWidth) {
+      favCtx.drawImage(favImg,0,0,S,S);
+    } else {
+      favCtx.fillStyle='#111'; favCtx.fillRect(0,0,S,S);
+      favCtx.fillStyle='#e8c547'; favCtx.font='bold 28px sans-serif';
+      favCtx.textAlign='center'; favCtx.textBaseline='middle';
+      favCtx.fillText('H',cx,cy);
+    }
+    favCtx.restore();
   }
-  function drawRing(){ctx.save();ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE/2-1.5,0,Math.PI*2);ctx.strokeStyle='rgba(232,197,71,0.85)';ctx.lineWidth=2.5;ctx.stroke();ctx.restore();}
-  function animate(ts){
-    requestAnimationFrame(animate);
-    if(!started){lastTime=ts;started=true;}
-    if(!shineActive&&ts-lastTime>=INTERVAL){shineActive=true;shineX=-40;}
-    drawBase();
-    if(shineActive){drawShine();shineX+=shineSpeed;if(shineX>SIZE+40){shineActive=false;lastTime=ts;}}
-    drawRing();
-    link.href=cvs.toDataURL('image/png');
+
+  function drawFavRing() {
+    favCtx.save();
+    favCtx.beginPath(); favCtx.arc(FAV_SIZE/2,FAV_SIZE/2,FAV_SIZE/2-1.5,0,Math.PI*2);
+    favCtx.strokeStyle='rgba(232,197,71,0.85)'; favCtx.lineWidth=2.5; favCtx.stroke();
+    favCtx.restore();
   }
-  function start(){requestAnimationFrame(animate);}
-  if(img.src){img.complete&&img.naturalWidth?start():(img.onload=img.onerror=start);}else{start();}
+
+  function drawFavShine(x) {
+    var S = FAV_SIZE;
+    favCtx.save();
+    favCtx.beginPath(); favCtx.arc(S/2,S/2,S/2,0,Math.PI*2); favCtx.clip();
+    var g = favCtx.createLinearGradient(x-20,0,x+20,S);
+    g.addColorStop(0,  'rgba(255,255,255,0)');
+    g.addColorStop(0.3,'rgba(255,245,160,0.25)');
+    g.addColorStop(0.5,'rgba(255,255,255,0.7)');
+    g.addColorStop(0.7,'rgba(255,245,160,0.25)');
+    g.addColorStop(1,  'rgba(255,255,255,0)');
+    favCtx.fillStyle=g; favCtx.fillRect(x-35,0,75,S);
+    favCtx.restore();
+  }
+
+  function drawLogoShine(x) {
+    if (!logoCvs || !logoCtx) return;
+    var W = logoCvs.offsetWidth  || logoImg && logoImg.offsetWidth  || 52;
+    var H = logoCvs.offsetHeight || logoImg && logoImg.offsetHeight || 52;
+    logoCvs.width = W; logoCvs.height = H;
+    logoCtx.clearRect(0,0,W,H);
+    logoCtx.save();
+    logoCtx.beginPath(); logoCtx.arc(W/2,H/2,Math.min(W,H)/2,0,Math.PI*2); logoCtx.clip();
+    var bw = W*0.4;
+    var gx = -bw + (W + bw*2) * x;  // x is 0→1 progress
+    var g = logoCtx.createLinearGradient(gx-bw,0,gx+bw,H);
+    g.addColorStop(0,  'rgba(255,255,255,0)');
+    g.addColorStop(0.3,'rgba(255,245,150,0.2)');
+    g.addColorStop(0.5,'rgba(255,255,255,0.72)');
+    g.addColorStop(0.7,'rgba(255,245,150,0.2)');
+    g.addColorStop(1,  'rgba(255,255,255,0)');
+    logoCtx.fillStyle=g; logoCtx.fillRect(0,0,W,H);
+    logoCtx.restore();
+  }
+
+  /* ─────────────────────────────────
+     SYNC TRIGGER — fires all three
+  ───────────────────────────────── */
+  var shineRunning = false;
+
+  function triggerAll() {
+    if (shineRunning) return;
+    shineRunning = true;
+
+    /* 1. Text shine */
+    if (textEl) {
+      textEl.classList.remove('hrs-text-shine');
+      void textEl.offsetWidth;
+      textEl.classList.add('hrs-text-shine');
+      textEl.addEventListener('animationend', function () {
+        textEl.classList.remove('hrs-text-shine');
+      }, {once:true});
+    }
+
+    /* 2. Logo canvas + favicon canvas — animated together via rAF */
+    var start = null;
+    var favShineX = -40;
+    var FAV_SPEED = 1.8;
+
+    function frame(ts) {
+      if (!start) start = ts;
+      var elapsed = ts - start;
+      var progress = Math.min(elapsed / SHINE_MS, 1);
+
+      /* favicon */
+      drawFavBase();
+      if (progress < 1) drawFavShine(favShineX);
+      drawFavRing();
+      favLink.href = favCvs.toDataURL('image/png');
+      favShineX += FAV_SPEED;
+
+      /* header logo */
+      drawLogoShine(progress);
+
+      if (progress < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        /* clear logo canvas overlay */
+        if (logoCtx && logoCvs) logoCtx.clearRect(0,0,logoCvs.width,logoCvs.height);
+        shineRunning = false;
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ─────────────────────────────────
+     IDLE favicon loop (no shine)
+  ───────────────────────────────── */
+  function idleLoop() {
+    if (!shineRunning) {
+      drawFavBase();
+      drawFavRing();
+      favLink.href = favCvs.toDataURL('image/png');
+    }
+    requestAnimationFrame(idleLoop);
+  }
+
+  /* ─────────────────────────────────
+     BOOT
+  ───────────────────────────────── */
+  function boot() {
+    requestAnimationFrame(idleLoop);
+    setTimeout(function () {
+      triggerAll();
+      setInterval(triggerAll, INTERVAL);
+    }, 1500);
+  }
+
+  if (favImg.src) {
+    if (favImg.complete && favImg.naturalWidth) boot();
+    else { favImg.onload = boot; favImg.onerror = boot; }
+  } else {
+    boot();
+  }
 })();
 </script>
-
 </body></html>
