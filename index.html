@@ -1239,25 +1239,236 @@
   <div>Editor &middot; Colorist &middot; Visual Storyteller</div>
   <div class="footer-mono" style="margin-top:1.5rem;">&copy; 2025 &middot; All Rights Reserved</div>
 
-  <!-- LIVE VISITOR COUNTER (Firebase Realtime DB — updates without refresh) -->
-  <div style="margin-top:1.8rem;display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
-    <div style="display:flex;align-items:center;gap:0.5rem;font-family:var(--font-mono,monospace);font-size:0.68rem;letter-spacing:0.1em;color:var(--muted,#888);text-transform:uppercase;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e8c547" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-        <circle cx="12" cy="12" r="3"/>
-      </svg>
+  <!-- LIVE VISITOR COUNTER — Animated Flip Display -->
+  <style>
+  /* ── VISITOR COUNTER WIDGET ── */
+  #vc-widget {
+    margin-top: 2.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  /* Header row */
+  .vc-header {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    color: rgba(232,197,71,0.6);
+    text-transform: uppercase;
+    margin-bottom: 0.9rem;
+  }
+  .vc-eye-icon {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+  .vc-eye-icon svg { display: block; }
+  /* Glowing orb behind digits */
+  .vc-glow-ring {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.1rem 1.6rem 1rem;
+    background: linear-gradient(135deg, rgba(232,197,71,0.06) 0%, rgba(0,0,0,0.4) 100%);
+    border: 1px solid rgba(232,197,71,0.22);
+    border-radius: 10px;
+    box-shadow:
+      0 0 28px rgba(232,197,71,0.08),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow: hidden;
+  }
+  .vc-glow-ring::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140%;
+    height: 80%;
+    background: radial-gradient(ellipse, rgba(232,197,71,0.13) 0%, transparent 70%);
+    pointer-events: none;
+    animation: vcPulseGlow 3s ease-in-out infinite;
+  }
+  @keyframes vcPulseGlow {
+    0%, 100% { opacity: 0.6; transform: translateX(-50%) scaleX(1); }
+    50%       { opacity: 1;   transform: translateX(-50%) scaleX(1.1); }
+  }
+  /* Corner accent marks */
+  .vc-corner {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-color: rgba(232,197,71,0.5);
+    border-style: solid;
+    pointer-events: none;
+  }
+  .vc-corner.tl { top:5px;    left:5px;   border-width: 1.5px 0 0 1.5px; }
+  .vc-corner.tr { top:5px;    right:5px;  border-width: 1.5px 1.5px 0 0; }
+  .vc-corner.bl { bottom:5px; left:5px;   border-width: 0 0 1.5px 1.5px; }
+  .vc-corner.br { bottom:5px; right:5px;  border-width: 0 1.5px 1.5px 0; }
+
+  /* DIGIT FLIP CONTAINER */
+  .vc-digits {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    position: relative;
+    z-index: 1;
+  }
+  /* Each individual digit slot */
+  .vc-digit-slot {
+    position: relative;
+    width: 32px;
+    height: 50px;
+    perspective: 200px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(232,197,71,0.18);
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.6);
+  }
+  /* Center line divider (flip clock style) */
+  .vc-digit-slot::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px;
+    background: rgba(0,0,0,0.9);
+    z-index: 10;
+    pointer-events: none;
+  }
+  /* The scrolling tape of digits */
+  .vc-digit-tape {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: none;
+  }
+  .vc-digit-tape.animating {
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .vc-digit-face {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #e8c547;
+    text-shadow: 0 0 12px rgba(232,197,71,0.5);
+    user-select: none;
+    line-height: 1;
+  }
+  /* Highlight sheen on digit */
+  .vc-digit-slot::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(to bottom, rgba(255,255,255,0.06), transparent);
+    z-index: 5;
+    pointer-events: none;
+    border-radius: 4px 4px 0 0;
+  }
+  /* Separator dot between groups */
+  .vc-sep {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: rgba(232,197,71,0.35);
+    line-height: 50px;
+    padding: 0 1px;
+    margin-bottom: 0;
+    user-select: none;
+  }
+  /* Status row */
+  .vc-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .vc-live-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #e8c547;
+    box-shadow: 0 0 6px rgba(232,197,71,0.8);
+    transition: background 0.4s, box-shadow 0.4s;
+    animation: vcDotPulse 2s ease-in-out infinite;
+  }
+  @keyframes vcDotPulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(232,197,71,0.6); }
+    50%       { box-shadow: 0 0 10px rgba(232,197,71,0.95); }
+  }
+  #vc-status {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.58rem;
+    color: var(--muted, #666);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  /* Scan-line overlay across entire widget */
+  .vc-scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,0,0,0.07) 3px,
+      rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none;
+    border-radius: 10px;
+    z-index: 2;
+    opacity: 0.6;
+  }
+  </style>
+
+  <div id="vc-widget">
+    <div class="vc-header">
+      <div class="vc-eye-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e8c547" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </div>
       Total Visitors
     </div>
-    <div id="vc-number" style="font-family:var(--font-mono,monospace);font-size:1.9rem;font-weight:700;color:#e8c547;letter-spacing:0.05em;min-width:90px;text-align:center;line-height:1;transition:all 0.3s;">—</div>
-    <div style="display:flex;align-items:center;gap:0.45rem;">
-      <span id="vc-live-dot" style="width:7px;height:7px;border-radius:50%;background:#e8c547;display:inline-block;transition:background 0.4s;"></span>
-      <span id="vc-status" style="font-family:var(--font-mono,monospace);font-size:0.62rem;color:var(--muted,#666);letter-spacing:0.08em;">connecting...</span>
+
+    <div class="vc-glow-ring" id="vc-glow-ring">
+      <!-- Corner marks -->
+      <div class="vc-corner tl"></div>
+      <div class="vc-corner tr"></div>
+      <div class="vc-corner bl"></div>
+      <div class="vc-corner br"></div>
+      <!-- Scanlines -->
+      <div class="vc-scanlines"></div>
+      <!-- Digit slots injected by JS -->
+      <div class="vc-digits" id="vc-digits">
+        <!-- placeholder while loading -->
+        <div class="vc-digit-slot"><div class="vc-digit-tape"><div class="vc-digit-face" style="color:rgba(232,197,71,0.3);">—</div></div></div>
+      </div>
+    </div>
+
+    <div class="vc-status-row">
+      <span class="vc-live-dot" id="vc-live-dot"></span>
+      <span id="vc-status">connecting...</span>
     </div>
   </div>
 </footer>
 
 <script>
-/* ── Firebase Realtime Database — LIVE Visitor Counter ───────────
+/* ── Firebase Realtime Database — LIVE Visitor Counter (Flip Digit UI)
    HOW TO SET UP (one-time, 5 minutes):
    1. Go to https://console.firebase.google.com
    2. Click "Add project" → name it "hrs-editz-counter" → Continue
@@ -1270,82 +1481,150 @@
 (function(){
   var DB_URL = 'https://hrs-editz-counter-default-rtdb.firebaseio.com';
   var KEY    = 'portfolio/visits';
-  var numEl  = document.getElementById('vc-number');
   var stEl   = document.getElementById('vc-status');
   var dotEl  = document.getElementById('vc-live-dot');
+  var digitsEl = document.getElementById('vc-digits');
 
-  function fmt(n){
-    if(n>=1000000) return (n/1000000).toFixed(1)+'M';
-    if(n>=1000)    return (n/1000).toFixed(1)+'K';
-    return ''+n;
+  /* ── Flip digit engine ── */
+  var SLOT_H = 50;   // px — must match CSS .vc-digit-slot height
+
+  /* Build an array of digit slot DOM nodes and return them */
+  function buildSlots(count) {
+    digitsEl.innerHTML = '';
+    var slots = [];
+    for (var i = 0; i < count; i++) {
+      // Add thousands separator dots
+      if (i > 0 && (count - i) % 3 === 0) {
+        var sep = document.createElement('div');
+        sep.className = 'vc-sep';
+        sep.textContent = ',';
+        digitsEl.appendChild(sep);
+      }
+      var slot = document.createElement('div');
+      slot.className = 'vc-digit-slot';
+      // Build tape: digits 0-9 repeated twice for seamless wrap
+      var tape = document.createElement('div');
+      tape.className = 'vc-digit-tape';
+      for (var d = 0; d <= 9; d++) {
+        var face = document.createElement('div');
+        face.className = 'vc-digit-face';
+        face.textContent = d;
+        tape.appendChild(face);
+      }
+      slot.appendChild(tape);
+      digitsEl.appendChild(slot);
+      slots.push({ slot: slot, tape: tape, current: 0 });
+    }
+    return slots;
   }
 
-  function animateCount(from, to, duration){
+  var slots = [];
+  var currentVal = 0;
+
+  /* Set a single digit slot to a digit value, animated */
+  function flipSlot(slotObj, newDigit, animate) {
+    var tape = slotObj.tape;
+    if (animate && newDigit !== slotObj.current) {
+      tape.classList.remove('animating');
+      void tape.offsetWidth; // reflow
+      tape.classList.add('animating');
+    }
+    tape.style.transform = 'translateY(-' + (newDigit * SLOT_H) + 'px)';
+    slotObj.current = newDigit;
+  }
+
+  /* Render a number into the slots, building/rebuilding slots if digit-count changed */
+  function renderNumber(n, animate) {
+    var str = '' + Math.max(0, Math.floor(n));
+    // Minimum 4 digits for nice display
+    while (str.length < 4) str = '0' + str;
+
+    if (str.length !== slots.length) {
+      slots = buildSlots(str.length);
+      animate = false; // fresh build, no animation needed
+    }
+    for (var i = 0; i < str.length; i++) {
+      flipSlot(slots[i], parseInt(str[i], 10), animate);
+    }
+  }
+
+  /* Smooth count-up animation that updates flip digits frame-by-frame */
+  function animateCountUp(from, to, duration) {
     var start = null;
-    var f = parseInt(from)||0;
-    var t = parseInt(to)||0;
-    function step(ts){
-      if(!start) start = ts;
-      var prog = Math.min((ts-start)/duration, 1);
-      var ease = 1 - Math.pow(1-prog, 3); // ease-out cubic
-      numEl.textContent = fmt(Math.round(f + (t-f)*ease));
-      if(prog < 1) requestAnimationFrame(step);
-      else numEl.textContent = fmt(t);
+    var f = Math.max(0, Math.floor(from));
+    var t = Math.max(0, Math.floor(to));
+    function step(ts) {
+      if (!start) start = ts;
+      var prog = Math.min((ts - start) / duration, 1);
+      var ease = 1 - Math.pow(1 - prog, 3);
+      var cur = Math.round(f + (t - f) * ease);
+      renderNumber(cur, true);
+      if (prog < 1) requestAnimationFrame(step);
+      else renderNumber(t, true);
     }
     requestAnimationFrame(step);
   }
 
+  /* Flash dot on live update */
+  function flashDot(color) {
+    if (!dotEl) return;
+    dotEl.style.background = color;
+    dotEl.style.boxShadow  = '0 0 10px ' + color;
+    setTimeout(function(){
+      dotEl.style.background = '#e8c547';
+      dotEl.style.boxShadow  = '0 0 6px rgba(232,197,71,0.8)';
+    }, 1000);
+  }
+
   /* ── Step 1: Increment counter once on this page load ── */
-  fetch(DB_URL+'/'+KEY+'.json')
+  fetch(DB_URL + '/' + KEY + '.json')
     .then(function(r){ return r.json(); })
     .then(function(val){
-      var cur = (typeof val==='number' && val>0) ? val : 0;
+      var cur = (typeof val === 'number' && val > 0) ? val : 0;
       var nxt = cur + 1;
-      return fetch(DB_URL+'/'+KEY+'.json',{
-        method :'PUT',
-        headers:{'Content-Type':'application/json'},
-        body   :JSON.stringify(nxt)
+      return fetch(DB_URL + '/' + KEY + '.json', {
+        method : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify(nxt)
       }).then(function(r){ return r.json(); })
         .then(function(saved){
-          var n = typeof saved==='number' ? saved : nxt;
-          animateCount(cur, n, 800);
-          stEl.textContent = 'all time';
-          /* ── Step 2: Open SSE stream for LIVE updates ── */
+          var n = typeof saved === 'number' ? saved : nxt;
+          currentVal = n;
+          animateCountUp(cur, n, 1200);
+          if (stEl) stEl.textContent = 'all time';
+          flashDot('#2ecc71');
           startLiveListener(n);
         });
     })
     .catch(function(){
-      numEl.textContent = '—';
-      stEl.textContent  = 'setup Firebase (see code)';
+      // Show dashes on error
+      if (digitsEl) digitsEl.innerHTML = '<div class="vc-digit-slot"><div class="vc-digit-tape"><div class="vc-digit-face" style="color:rgba(232,197,71,0.3);">—</div></div></div>';
+      if (stEl) stEl.textContent = 'setup Firebase (see code)';
     });
 
-  /* ── Firebase SSE (Server-Sent Events) live listener ──
-     Firebase REST API supports ?stream — fires whenever
-     the value changes in the DB, on any visitor's device. */
+  /* ── Firebase SSE — live updates ── */
   var lastKnown = 0;
-  function startLiveListener(initialVal){
+  function startLiveListener(initialVal) {
     lastKnown = initialVal;
     try {
-      var es = new EventSource(DB_URL+'/'+KEY+'.json?stream=true&ns=hrs-editz-counter-default-rtdb');
+      var es = new EventSource(DB_URL + '/' + KEY + '.json?stream=true&ns=hrs-editz-counter-default-rtdb');
       es.addEventListener('put', function(e){
         try {
           var data = JSON.parse(e.data);
-          /* Firebase SSE sends {path, data} */
           var val = (data && typeof data.data === 'number') ? data.data : null;
-          if(val !== null && val !== lastKnown && val > 0){
-            animateCount(lastKnown, val, 600);
+          if (val !== null && val !== lastKnown && val > 0) {
+            animateCountUp(lastKnown, val, 700);
             lastKnown = val;
-            /* Flash the live dot green to signal update */
-            if(dotEl){
-              dotEl.style.background = '#2ecc71';
-              setTimeout(function(){ dotEl.style.background = '#e8c547'; }, 1200);
-            }
+            flashDot('#2ecc71');
           }
         } catch(err){}
       });
-      es.onerror = function(){ es.close(); }; // silently close on error
+      es.onerror = function(){ es.close(); };
     } catch(err){}
   }
+
+  /* Initial placeholder render */
+  renderNumber(0, false);
 })();
 </script>
 
