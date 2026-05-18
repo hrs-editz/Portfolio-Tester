@@ -1236,52 +1236,43 @@
 <!-- FOOTER -->
 <footer>
   <div class="footer-logo" id="footer-name">Hariharan R</div>
-  <div>Editor · Colorist · Visual Storyteller</div>
-  <div class="footer-mono" style="margin-top:1.5rem;">© 2025 · All Rights Reserved</div>
-  <!-- Visitor counter — using your exact live URL -->
-  <div id="visitor-counter" style="margin-top:1.4rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.6rem;">
+  <div>Editor &middot; Colorist &middot; Visual Storyteller</div>
+  <div class="footer-mono" style="margin-top:1.5rem;">&copy; 2025 &middot; All Rights Reserved</div>
 
-    <!-- Primary badge: hits.seeyoufarm with your exact GitHub Pages URL -->
-    <img id="vc-badge"
-      src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fhrs-editz.github.io%2FPortfolio-Tester%2F&count_bg=%23e8c547&title_bg=%23111111&icon=eye.svg&icon_color=%23000&title=Visitors&edge_flat=true"
-      alt="Visitor Count"
-      height="22"
-      style="border-radius:2px;"
-      onerror="this.style.display='none';document.getElementById('vc-fallback').style.display='flex';"
-    >
-
-    <!-- Secondary: komarev profile views badge (very reliable) -->
-    <img id="vc-badge2"
-      src="https://komarev.com/ghpvc/?username=hrs-editz&label=Portfolio+Views&color=e8c547&style=flat"
-      alt="Portfolio Views"
-      height="20"
-      style="border-radius:2px;display:none;"
-    >
-
-    <!-- Text fallback -->
-    <div id="vc-fallback" style="display:none;align-items:center;gap:0.5rem;font-family:var(--font-mono,monospace);font-size:0.72rem;color:var(--muted,#888);letter-spacing:0.08em;">
-      <span style="width:7px;height:7px;border-radius:50%;background:#e8c547;display:inline-block;"></span>
-      <span id="vc-text">— visitors</span>
+  <!-- LIVE VISITOR COUNTER (Firebase Realtime DB — updates without refresh) -->
+  <div style="margin-top:1.8rem;display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;font-family:var(--font-mono,monospace);font-size:0.68rem;letter-spacing:0.1em;color:var(--muted,#888);text-transform:uppercase;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#e8c547" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+      Total Visitors
+    </div>
+    <div id="vc-number" style="font-family:var(--font-mono,monospace);font-size:1.9rem;font-weight:700;color:#e8c547;letter-spacing:0.05em;min-width:90px;text-align:center;line-height:1;transition:all 0.3s;">—</div>
+    <div style="display:flex;align-items:center;gap:0.45rem;">
+      <span id="vc-live-dot" style="width:7px;height:7px;border-radius:50%;background:#e8c547;display:inline-block;transition:background 0.4s;"></span>
+      <span id="vc-status" style="font-family:var(--font-mono,monospace);font-size:0.62rem;color:var(--muted,#666);letter-spacing:0.08em;">connecting...</span>
     </div>
   </div>
 </footer>
 
 <script>
-/* ── Firebase Realtime Database Visitor Counter ──────────────────
+/* ── Firebase Realtime Database — LIVE Visitor Counter ───────────
    HOW TO SET UP (one-time, 5 minutes):
    1. Go to https://console.firebase.google.com
    2. Click "Add project" → name it "hrs-editz-counter" → Continue
    3. Go to Build → Realtime Database → Create Database
    4. Choose "Start in test mode" → Enable
-   5. Copy your DB URL (looks like https://hrs-editz-counter-default-rtdb.firebaseio.com)
-   6. Replace the DB_URL value below with your URL
-   7. Save & push to GitHub — counter works on ALL devices!
+   5. Copy your DB URL (e.g. https://hrs-editz-counter-default-rtdb.firebaseio.com)
+   6. Replace the DB_URL value below with YOUR actual URL
+   7. Save & push to GitHub — works on ALL devices, updates live!
 ──────────────────────────────────────────────────────────────── */
 (function(){
   var DB_URL = 'https://hrs-editz-counter-default-rtdb.firebaseio.com';
   var KEY    = 'portfolio/visits';
   var numEl  = document.getElementById('vc-number');
   var stEl   = document.getElementById('vc-status');
+  var dotEl  = document.getElementById('vc-live-dot');
 
   function fmt(n){
     if(n>=1000000) return (n/1000000).toFixed(1)+'M';
@@ -1289,29 +1280,72 @@
     return ''+n;
   }
 
-  // Read current count
+  function animateCount(from, to, duration){
+    var start = null;
+    var f = parseInt(from)||0;
+    var t = parseInt(to)||0;
+    function step(ts){
+      if(!start) start = ts;
+      var prog = Math.min((ts-start)/duration, 1);
+      var ease = 1 - Math.pow(1-prog, 3); // ease-out cubic
+      numEl.textContent = fmt(Math.round(f + (t-f)*ease));
+      if(prog < 1) requestAnimationFrame(step);
+      else numEl.textContent = fmt(t);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ── Step 1: Increment counter once on this page load ── */
   fetch(DB_URL+'/'+KEY+'.json')
     .then(function(r){ return r.json(); })
     .then(function(val){
       var cur = (typeof val==='number' && val>0) ? val : 0;
       var nxt = cur + 1;
-      // Write incremented count
       return fetch(DB_URL+'/'+KEY+'.json',{
-        method:'PUT',
+        method :'PUT',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(nxt)
+        body   :JSON.stringify(nxt)
       }).then(function(r){ return r.json(); })
         .then(function(saved){
           var n = typeof saved==='number' ? saved : nxt;
-          numEl.textContent = fmt(n);
-          stEl.textContent  = 'all time';
+          animateCount(cur, n, 800);
+          stEl.textContent = 'all time';
+          /* ── Step 2: Open SSE stream for LIVE updates ── */
+          startLiveListener(n);
         });
     })
-    .catch(function(e){
-      // Firebase not configured yet — show a note
+    .catch(function(){
       numEl.textContent = '—';
       stEl.textContent  = 'setup Firebase (see code)';
     });
+
+  /* ── Firebase SSE (Server-Sent Events) live listener ──
+     Firebase REST API supports ?stream — fires whenever
+     the value changes in the DB, on any visitor's device. */
+  var lastKnown = 0;
+  function startLiveListener(initialVal){
+    lastKnown = initialVal;
+    try {
+      var es = new EventSource(DB_URL+'/'+KEY+'.json?stream=true&ns=hrs-editz-counter-default-rtdb');
+      es.addEventListener('put', function(e){
+        try {
+          var data = JSON.parse(e.data);
+          /* Firebase SSE sends {path, data} */
+          var val = (data && typeof data.data === 'number') ? data.data : null;
+          if(val !== null && val !== lastKnown && val > 0){
+            animateCount(lastKnown, val, 600);
+            lastKnown = val;
+            /* Flash the live dot green to signal update */
+            if(dotEl){
+              dotEl.style.background = '#2ecc71';
+              setTimeout(function(){ dotEl.style.background = '#e8c547'; }, 1200);
+            }
+          }
+        } catch(err){}
+      });
+      es.onerror = function(){ es.close(); }; // silently close on error
+    } catch(err){}
+  }
 })();
 </script>
 
