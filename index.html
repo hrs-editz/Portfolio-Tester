@@ -687,9 +687,9 @@
 <!-- SITE HEADER: Big logo + title on top, nav links below -->
 <div id="site-header">
   <div id="site-header-brand">
-    <div id="hrs-logo-shine-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <div id="hrs-logo-wrap" style="position:relative;display:inline-flex;flex-shrink:0;">
       <img id="site-header-logo-img" src="Test.png" alt="HRS Logo" style="height:52px;width:52px;object-fit:contain;border-radius:50%;display:block;">
-      <canvas id="hrs-logo-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:50%;pointer-events:none;z-index:5;"></canvas>
+      <canvas id="hrs-logo-cvs" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;z-index:5;"></canvas>
     </div>
     <div id="site-header-title">
       <span class="brand-main">HARIHARAN EDITZ</span>
@@ -1611,198 +1611,263 @@
   <script src="intro.js"></script>
   <script src="ui.js"></script>
 
-<!-- ═══════════════════════════════════════════════════════
-     HRS GOLD SHINE — favicon + header logo + header text
-     All three fire at exactly the same time, every 5 s
-     ═══════════════════════════════════════════════════════ -->
+<!-- HRS SHINE ANIMATION -->
 <style>
-@keyframes hrsTextShine {
+@keyframes hrsSweep {
   0%   { background-position: -300% center; }
   100% { background-position:  300% center; }
 }
-.hrs-text-shine {
-  background: linear-gradient(
-    100deg,
-    #b07d10 0%,
-    #e8c547 22%,
-    #fff8b0 42%,
-    #ffffff 50%,
-    #fff8b0 58%,
-    #e8c547 78%,
-    #b07d10 100%
+.hrs-text-active {
+  background: linear-gradient(100deg,
+    #9a6c00 0%, #e8c547 22%, #fff8b0 43%,
+    #ffffff 50%, #fff8b0 57%, #e8c547 78%, #9a6c00 100%
   ) !important;
   background-size: 300% auto !important;
   -webkit-background-clip: text !important;
   background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
-  animation: hrsTextShine 1s ease-in-out forwards !important;
+  animation: hrsSweep 0.95s cubic-bezier(0.4,0,0.2,1) forwards !important;
 }
 </style>
 <script>
 (function () {
-  var INTERVAL = 5000;   // every 5 s
-  var SHINE_MS = 1000;   // shine duration matches CSS
+  'use strict';
 
-  /* ── 1. FAVICON canvas ── */
-  var FAV_SIZE = 64;
-  var favCvs   = document.createElement('canvas');
-  favCvs.width = favCvs.height = FAV_SIZE;
-  var favCtx   = favCvs.getContext('2d');
-  var favLink  = document.querySelector("link[rel~='icon']");
-  if (!favLink) {
-    favLink = document.createElement('link');
-    favLink.rel  = 'icon'; favLink.type = 'image/png';
-    document.head.appendChild(favLink);
-  }
+  var INTERVAL  = 5000;   // ms between shines
+  var SHINE_DUR = 950;    // must match CSS animation duration
+  var FAV_FPS   = 30;     // favicon redraws per second (throttled)
+  var FAV_INTERVAL = 1000 / FAV_FPS;
+
+  /* ── Elements ── */
+  var textEl   = null;
+  var logoCvs  = null;
+  var logoCtx  = null;
+  var logoImg  = null;
+  var favLink  = null;
+
+  /* ── Favicon canvas (off-screen, reused) ── */
+  var FAV = 64;
+  var favCvs = document.createElement('canvas');
+  favCvs.width = favCvs.height = FAV;
+  var favCtx = favCvs.getContext('2d');
+
+  /* Source image for favicon */
   var favImg = new Image();
   favImg.crossOrigin = 'anonymous';
-  var favOrigHref = favLink.href || '';
-  if (favOrigHref && favOrigHref.indexOf('data:') === -1) favImg.src = favOrigHref;
 
-  /* ── 2. Header logo canvas ── */
-  var logoCvs = document.getElementById('hrs-logo-canvas');
-  var logoImg = document.getElementById('site-header-logo-img');
-  var logoCtx = logoCvs ? logoCvs.getContext('2d') : null;
+  /* ── State ── */
+  var shineStart    = null;   // Date.now() when current shine began
+  var shineRunning  = false;
+  var nextShineTime = null;   // absolute time for next shine
+  var favLastDraw   = 0;      // throttle favicon redraws
 
-  /* ── 3. Text element ── */
-  var textEl = document.querySelector('.brand-main');
-
-  /* ─────────────────────────────────
-     DRAW helpers
-  ───────────────────────────────── */
-  function drawFavBase() {
-    var S = FAV_SIZE, cx = S/2, cy = S/2;
-    favCtx.clearRect(0,0,S,S);
+  /* ─────────────────────────────
+     FAVICON helpers
+  ───────────────────────────────*/
+  function favDrawBase() {
+    favCtx.clearRect(0, 0, FAV, FAV);
     favCtx.save();
-    favCtx.beginPath(); favCtx.arc(cx,cy,S/2,0,Math.PI*2); favCtx.clip();
+    favCtx.beginPath();
+    favCtx.arc(FAV/2, FAV/2, FAV/2, 0, Math.PI*2);
+    favCtx.clip();
     if (favImg.complete && favImg.naturalWidth) {
-      favCtx.drawImage(favImg,0,0,S,S);
+      favCtx.drawImage(favImg, 0, 0, FAV, FAV);
     } else {
-      favCtx.fillStyle='#111'; favCtx.fillRect(0,0,S,S);
-      favCtx.fillStyle='#e8c547'; favCtx.font='bold 28px sans-serif';
-      favCtx.textAlign='center'; favCtx.textBaseline='middle';
-      favCtx.fillText('H',cx,cy);
+      favCtx.fillStyle = '#111';
+      favCtx.fillRect(0, 0, FAV, FAV);
+      favCtx.fillStyle = '#e8c547';
+      favCtx.font = 'bold 28px sans-serif';
+      favCtx.textAlign = 'center';
+      favCtx.textBaseline = 'middle';
+      favCtx.fillText('H', FAV/2, FAV/2);
     }
     favCtx.restore();
   }
 
-  function drawFavRing() {
+  function favDrawRing() {
     favCtx.save();
-    favCtx.beginPath(); favCtx.arc(FAV_SIZE/2,FAV_SIZE/2,FAV_SIZE/2-1.5,0,Math.PI*2);
-    favCtx.strokeStyle='rgba(232,197,71,0.85)'; favCtx.lineWidth=2.5; favCtx.stroke();
+    favCtx.beginPath();
+    favCtx.arc(FAV/2, FAV/2, FAV/2 - 1.5, 0, Math.PI*2);
+    favCtx.strokeStyle = 'rgba(232,197,71,0.85)';
+    favCtx.lineWidth = 2.5;
+    favCtx.stroke();
     favCtx.restore();
   }
 
-  function drawFavShine(x) {
-    var S = FAV_SIZE;
+  function favDrawShine(progress) {
+    /* progress 0→1 */
+    var x = -FAV*0.3 + (FAV*1.6) * progress;
     favCtx.save();
-    favCtx.beginPath(); favCtx.arc(S/2,S/2,S/2,0,Math.PI*2); favCtx.clip();
-    var g = favCtx.createLinearGradient(x-20,0,x+20,S);
-    g.addColorStop(0,  'rgba(255,255,255,0)');
-    g.addColorStop(0.3,'rgba(255,245,160,0.25)');
-    g.addColorStop(0.5,'rgba(255,255,255,0.7)');
-    g.addColorStop(0.7,'rgba(255,245,160,0.25)');
-    g.addColorStop(1,  'rgba(255,255,255,0)');
-    favCtx.fillStyle=g; favCtx.fillRect(x-35,0,75,S);
+    favCtx.beginPath();
+    favCtx.arc(FAV/2, FAV/2, FAV/2, 0, Math.PI*2);
+    favCtx.clip();
+    var bw = FAV * 0.32;
+    var g = favCtx.createLinearGradient(x - bw, 0, x + bw, FAV);
+    g.addColorStop(0,   'rgba(255,255,255,0)');
+    g.addColorStop(0.3, 'rgba(255,245,160,0.22)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.70)');
+    g.addColorStop(0.7, 'rgba(255,245,160,0.22)');
+    g.addColorStop(1,   'rgba(255,255,255,0)');
+    favCtx.fillStyle = g;
+    favCtx.fillRect(0, 0, FAV, FAV);
     favCtx.restore();
   }
 
-  function drawLogoShine(x) {
-    if (!logoCvs || !logoCtx) return;
-    var W = logoCvs.offsetWidth  || logoImg && logoImg.offsetWidth  || 52;
-    var H = logoCvs.offsetHeight || logoImg && logoImg.offsetHeight || 52;
-    logoCvs.width = W; logoCvs.height = H;
-    logoCtx.clearRect(0,0,W,H);
+  /* Only push favicon to <link> when throttle allows */
+  function favPush(now) {
+    if (now - favLastDraw < FAV_INTERVAL) return;
+    favLastDraw = now;
+    favLink.href = favCvs.toDataURL('image/png');
+  }
+
+  /* ─────────────────────────────
+     LOGO canvas helper
+  ───────────────────────────────*/
+  function logoDrawShine(progress) {
+    if (!logoCtx || !logoCvs) return;
+    var W = logoCvs.width  || 52;
+    var H = logoCvs.height || 52;
+    logoCtx.clearRect(0, 0, W, H);
+    var bw = W * 0.42;
+    var x  = -bw + (W + bw*2) * progress;
     logoCtx.save();
-    logoCtx.beginPath(); logoCtx.arc(W/2,H/2,Math.min(W,H)/2,0,Math.PI*2); logoCtx.clip();
-    var bw = W*0.4;
-    var gx = -bw + (W + bw*2) * x;  // x is 0→1 progress
-    var g = logoCtx.createLinearGradient(gx-bw,0,gx+bw,H);
-    g.addColorStop(0,  'rgba(255,255,255,0)');
-    g.addColorStop(0.3,'rgba(255,245,150,0.2)');
-    g.addColorStop(0.5,'rgba(255,255,255,0.72)');
-    g.addColorStop(0.7,'rgba(255,245,150,0.2)');
-    g.addColorStop(1,  'rgba(255,255,255,0)');
-    logoCtx.fillStyle=g; logoCtx.fillRect(0,0,W,H);
+    logoCtx.beginPath();
+    logoCtx.arc(W/2, H/2, Math.min(W,H)/2, 0, Math.PI*2);
+    logoCtx.clip();
+    var g = logoCtx.createLinearGradient(x - bw, 0, x + bw, H);
+    g.addColorStop(0,   'rgba(255,255,255,0)');
+    g.addColorStop(0.3, 'rgba(255,248,160,0.18)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.68)');
+    g.addColorStop(0.7, 'rgba(255,248,160,0.18)');
+    g.addColorStop(1,   'rgba(255,255,255,0)');
+    logoCtx.fillStyle = g;
+    logoCtx.fillRect(0, 0, W, H);
     logoCtx.restore();
   }
 
-  /* ─────────────────────────────────
-     SYNC TRIGGER — fires all three
-  ───────────────────────────────── */
-  var shineRunning = false;
+  /* ─────────────────────────────
+     MAIN TICK — runs via setInterval
+     Works even when tab is hidden
+  ───────────────────────────────*/
+  function tick() {
+    var now = Date.now();
 
-  function triggerAll() {
-    if (shineRunning) return;
-    shineRunning = true;
-
-    /* 1. Text shine */
-    if (textEl) {
-      textEl.classList.remove('hrs-text-shine');
-      void textEl.offsetWidth;
-      textEl.classList.add('hrs-text-shine');
-      textEl.addEventListener('animationend', function () {
-        textEl.classList.remove('hrs-text-shine');
-      }, {once:true});
+    /* Check if it's time to start a new shine */
+    if (!shineRunning && nextShineTime !== null && now >= nextShineTime) {
+      startShine(now);
     }
 
-    /* 2. Logo canvas + favicon canvas — animated together via rAF */
-    var start = null;
-    var favShineX = -40;
-    var FAV_SPEED = 1.8;
+    if (shineRunning) {
+      var elapsed  = now - shineStart;
+      var progress = Math.min(elapsed / SHINE_DUR, 1);
 
-    function frame(ts) {
-      if (!start) start = ts;
-      var elapsed = ts - start;
-      var progress = Math.min(elapsed / SHINE_MS, 1);
+      /* Favicon */
+      favDrawBase();
+      favDrawShine(progress);
+      favDrawRing();
+      favPush(now);
 
-      /* favicon */
-      drawFavBase();
-      if (progress < 1) drawFavShine(favShineX);
-      drawFavRing();
-      favLink.href = favCvs.toDataURL('image/png');
-      favShineX += FAV_SPEED;
+      /* Logo canvas */
+      logoDrawShine(progress);
 
-      /* header logo */
-      drawLogoShine(progress);
-
-      if (progress < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        /* clear logo canvas overlay */
-        if (logoCtx && logoCvs) logoCtx.clearRect(0,0,logoCvs.width,logoCvs.height);
+      if (progress >= 1) {
+        /* Shine finished */
         shineRunning = false;
+        nextShineTime = now + INTERVAL;
+        /* Clear logo canvas */
+        if (logoCtx) logoCtx.clearRect(0, 0, logoCvs.width, logoCvs.height);
+        /* Redraw clean favicon */
+        favDrawBase();
+        favDrawRing();
+        favLink.href = favCvs.toDataURL('image/png');
       }
     }
-    requestAnimationFrame(frame);
   }
 
-  /* ─────────────────────────────────
-     IDLE favicon loop (no shine)
-  ───────────────────────────────── */
-  function idleLoop() {
-    if (!shineRunning) {
-      drawFavBase();
-      drawFavRing();
-      favLink.href = favCvs.toDataURL('image/png');
+  /* ─────────────────────────────
+     TEXT shine (CSS, rAF-based)
+     rAF is fine for visible-tab
+     text; we re-trigger via
+     visibilitychange too
+  ───────────────────────────────*/
+  function startTextShine() {
+    if (!textEl) return;
+    textEl.classList.remove('hrs-text-active');
+    void textEl.offsetWidth;
+    textEl.classList.add('hrs-text-active');
+    textEl.addEventListener('animationend', function () {
+      textEl.classList.remove('hrs-text-active');
+    }, { once: true });
+  }
+
+  function startShine(now) {
+    shineRunning = true;
+    shineStart   = now;
+    startTextShine();
+  }
+
+  /* ─────────────────────────────
+     VISIBILITY — resume when
+     user switches back to tab
+  ───────────────────────────────*/
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      /* If a shine was due while hidden, fire immediately */
+      var now = Date.now();
+      if (!shineRunning && nextShineTime !== null && now >= nextShineTime) {
+        startShine(now);
+      }
     }
-    requestAnimationFrame(idleLoop);
-  }
+  });
 
-  /* ─────────────────────────────────
+  /* ─────────────────────────────
      BOOT
-  ───────────────────────────────── */
+  ───────────────────────────────*/
   function boot() {
-    requestAnimationFrame(idleLoop);
-    setTimeout(function () {
-      triggerAll();
-      setInterval(triggerAll, INTERVAL);
-    }, 1500);
+    textEl  = document.querySelector('.brand-main');
+    logoCvs = document.getElementById('hrs-logo-cvs');
+    logoImg = document.getElementById('site-header-logo-img');
+    favLink = document.querySelector("link[rel~='icon']");
+
+    if (!favLink) {
+      favLink = document.createElement('link');
+      favLink.rel  = 'icon';
+      favLink.type = 'image/png';
+      document.head.appendChild(favLink);
+    }
+
+    /* Size the logo canvas to match the img */
+    if (logoCvs && logoImg) {
+      logoCtx = logoCvs.getContext('2d');
+      function sizeCanvas() {
+        logoCvs.width  = logoImg.offsetWidth  || 52;
+        logoCvs.height = logoImg.offsetHeight || 52;
+      }
+      sizeCanvas();
+      window.addEventListener('resize', sizeCanvas);
+    }
+
+    /* Draw static favicon immediately */
+    favDrawBase();
+    favDrawRing();
+    favLink.href = favCvs.toDataURL('image/png');
+
+    /* Schedule first shine */
+    nextShineTime = Date.now() + 1500;
+
+    /* Tick every ~16 ms (≈60fps for logo canvas smoothness)
+       setInterval keeps running even on hidden tabs */
+    setInterval(tick, 16);
   }
 
-  if (favImg.src) {
-    if (favImg.complete && favImg.naturalWidth) boot();
-    else { favImg.onload = boot; favImg.onerror = boot; }
+  /* Point favImg at logo source */
+  var existingFav = document.querySelector("link[rel~='icon']");
+  var favSrc = (existingFav && existingFav.href && existingFav.href.indexOf('data:') === -1)
+    ? existingFav.href : 'Test.png';
+  favImg.src = favSrc;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
     boot();
   }
