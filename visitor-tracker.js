@@ -1,336 +1,492 @@
 /* ================================================================
    HARIHARAN R — PORTFOLIO  |  visitor-tracker.js
-   Google Sign-In Visitor Tracking + Admin Panel "Visitors" Tab
+   Mandatory Google Sign-In Gate + Admin Visitors Tab
    ─────────────────────────────────────────────────────────────
-   HOW IT WORKS:
-   1. Visitor sees a subtle "Sign in with Google" toast/prompt
-   2. If they sign in → their name, email, photo, time, device
-      are saved to localStorage
-   3. In Admin Panel → "Visitors" tab shows all visitor details
-   4. You can clear the list any time from admin
+   FLOW:
+   1. Intro animation plays normally
+   2. After intro ends → full-screen sign-in gate appears
+   3. Visitor MUST sign in with Google to access the portfolio
+   4. Once signed in → gate fades out, portfolio is visible
+   5. Returning visitors (same browser) skip the gate
+   6. Admin Panel → "👥 Visitors" tab shows all visitor details
 ================================================================ */
 
-/* ── CONFIG ─────────────────────────────────────────────────── */
-// Replace with your own Google OAuth Client ID
-// Get one free at: https://console.cloud.google.com/
-// Authorised JS origins: add your GitHub Pages URL + http://localhost
-const GOOGLE_CLIENT_ID = '633973864394-r0h9go0n37rj9ihog3johihinvs1751r.apps.googleusercontent.com';
+/* ── CONFIG ──────────────────────────────────────────────────── */
+// Replace with your Google OAuth Client ID from console.cloud.google.com
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
 
-const VISITOR_STORAGE_KEY = 'hrs_visitors';
-const SIGNIN_PROMPTED_KEY = 'hrs_signin_prompted';
+const VISITOR_STORAGE_KEY  = 'hrs_visitors';
+const SIGNED_IN_KEY        = 'hrs_signed_in_user'; // persists across sessions
 
-/* ── VISITOR DATA HELPERS ─────────────────────────────────────*/
+/* ── VISITOR DATA HELPERS ──────────────────────────────────────*/
 function getVisitors() {
-  try {
-    return JSON.parse(localStorage.getItem(VISITOR_STORAGE_KEY) || '[]');
-  } catch(e) { return []; }
+  try { return JSON.parse(localStorage.getItem(VISITOR_STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
 }
-
 function saveVisitors(arr) {
   try { localStorage.setItem(VISITOR_STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+function getSignedInUser() {
+  try { return JSON.parse(localStorage.getItem(SIGNED_IN_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+function setSignedInUser(profile) {
+  try { localStorage.setItem(SIGNED_IN_KEY, JSON.stringify(profile)); } catch(e) {}
 }
 
 function recordVisitor(profile) {
   var visitors = getVisitors();
-  // Avoid duplicate entries for same email in same browser session
-  var sessionKey = 'hrs_session_' + profile.email;
-  if (sessionStorage.getItem(sessionKey)) return;
-  sessionStorage.setItem(sessionKey, '1');
+  // Only record once per email (first-ever visit)
+  var alreadyRecorded = visitors.some(function(v) { return v.email === profile.email; });
 
   var ua = navigator.userAgent;
-  var device = /Mobi|Android/i.test(ua) ? '📱 Mobile' :
-               /Tablet|iPad/i.test(ua)   ? '📲 Tablet' : '🖥️ Desktop';
-  var browser = /Chrome/i.test(ua) && !/Edg/i.test(ua) ? 'Chrome' :
+  var device  = /Mobi|Android/i.test(ua) ? '📱 Mobile' :
+                /Tablet|iPad/i.test(ua)   ? '📲 Tablet' : '🖥️ Desktop';
+  var browser = /Edg/i.test(ua)     ? 'Edge'    :
+                /Chrome/i.test(ua)  ? 'Chrome'  :
                 /Firefox/i.test(ua) ? 'Firefox' :
-                /Safari/i.test(ua)  ? 'Safari'  :
-                /Edg/i.test(ua)     ? 'Edge'    : 'Other';
+                /Safari/i.test(ua)  ? 'Safari'  : 'Other';
 
-  visitors.unshift({
-    name:    profile.name    || 'Unknown',
-    email:   profile.email   || '—',
-    picture: profile.picture || '',
-    time:    new Date().toISOString(),
-    device:  device,
-    browser: browser,
-    ref:     document.referrer || 'Direct'
-  });
-
-  // Keep max 200 entries
-  if (visitors.length > 200) visitors = visitors.slice(0, 200);
+  if (!alreadyRecorded) {
+    visitors.unshift({
+      name:    profile.name    || 'Unknown',
+      email:   profile.email   || '—',
+      picture: profile.picture || '',
+      time:    new Date().toISOString(),
+      device:  device,
+      browser: browser,
+      ref:     document.referrer || 'Direct',
+      visits:  1
+    });
+    if (visitors.length > 500) visitors = visitors.slice(0, 500);
+  } else {
+    // Increment visit count for returning visitors
+    visitors = visitors.map(function(v) {
+      if (v.email === profile.email) {
+        v.visits = (v.visits || 1) + 1;
+        v.lastSeen = new Date().toISOString();
+      }
+      return v;
+    });
+  }
   saveVisitors(visitors);
 }
 
-/* ── GOOGLE SIGN-IN TOAST ─────────────────────────────────────*/
-function injectGoogleStyles() {
-  if (document.getElementById('hrs-visitor-styles')) return;
-  var style = document.createElement('style');
-  style.id = 'hrs-visitor-styles';
-  style.textContent = `
-    #hrs-signin-toast {
+/* ── STYLES ────────────────────────────────────────────────────*/
+function injectStyles() {
+  if (document.getElementById('hrs-gate-styles')) return;
+  var s = document.createElement('style');
+  s.id = 'hrs-gate-styles';
+  s.textContent = `
+    /* ── SIGN-IN GATE ── */
+    #hrs-signin-gate {
       position: fixed;
-      bottom: 90px;
-      right: 28px;
-      z-index: 99998;
-      background: #1a1a1a;
-      border: 1px solid rgba(232,197,71,0.25);
-      border-radius: 8px;
-      padding: 14px 16px;
+      inset: 0;
+      z-index: 999999;
+      background: #0a0a0a;
       display: flex;
       align-items: center;
-      gap: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.55);
-      max-width: 310px;
+      justify-content: center;
+      flex-direction: column;
+      gap: 0;
       opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.4s ease, transform 0.4s ease;
+      transition: opacity 0.5s ease;
+      overflow: hidden;
+    }
+    #hrs-signin-gate.visible { opacity: 1; }
+    #hrs-signin-gate.hiding {
+      opacity: 0;
       pointer-events: none;
     }
-    #hrs-signin-toast.show {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: all;
-    }
-    #hrs-signin-toast .toast-icon {
-      font-size: 1.5rem;
-      flex-shrink: 0;
-    }
-    #hrs-signin-toast .toast-text {
-      font-family: var(--font-body, sans-serif);
-      font-size: 0.8rem;
-      color: rgba(255,255,255,0.7);
-      line-height: 1.4;
-      flex: 1;
-    }
-    #hrs-signin-toast .toast-text strong {
-      color: #fff;
-      display: block;
-      margin-bottom: 2px;
-      font-size: 0.85rem;
-    }
-    #hrs-signin-toast .toast-close {
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.35);
-      cursor: pointer;
-      font-size: 1rem;
-      padding: 0;
-      line-height: 1;
-      flex-shrink: 0;
-      transition: color 0.2s;
-    }
-    #hrs-signin-toast .toast-close:hover { color: rgba(255,255,255,0.7); }
 
-    /* Google Sign-In button container inside toast */
-    #hrs-google-btn-wrap {
-      margin-top: 10px;
+    /* Background subtle grid */
+    #hrs-signin-gate::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232,197,71,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,197,71,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
     }
 
-    /* Admin visitors tab styles */
-    #tab-visitors {
-      padding: 0;
+    .hrs-gate-card {
+      position: relative;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(232,197,71,0.18);
+      border-radius: 12px;
+      padding: 2.8rem 2.5rem 2.5rem;
+      max-width: 420px;
+      width: calc(100% - 3rem);
+      text-align: center;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(232,197,71,0.08);
     }
-    .vis-header {
+
+    .hrs-gate-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(232,197,71,0.1);
+      border: 2px solid rgba(232,197,71,0.3);
       display: flex;
       align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.4rem;
+      font-size: 1.8rem;
+    }
+
+    .hrs-gate-name {
+      font-family: var(--font-mono, monospace);
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      color: var(--accent, #e8c547);
+      text-transform: uppercase;
+      margin-bottom: 0.6rem;
+    }
+
+    .hrs-gate-title {
+      font-family: var(--font-heading, serif);
+      font-size: 1.55rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.6rem;
+      line-height: 1.2;
+    }
+
+    .hrs-gate-sub {
+      font-family: var(--font-body, sans-serif);
+      font-size: 0.84rem;
+      color: rgba(255,255,255,0.45);
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .hrs-gate-sub strong {
+      color: rgba(255,255,255,0.7);
+    }
+
+    .hrs-gate-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 1.4rem;
+    }
+    .hrs-gate-divider span {
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+    .hrs-gate-divider em {
+      font-style: normal;
+      font-family: var(--font-mono, monospace);
+      font-size: 0.65rem;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.06em;
+    }
+
+    #hrs-gate-google-btn {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .hrs-gate-privacy {
+      font-family: var(--font-mono, monospace);
+      font-size: 0.63rem;
+      color: rgba(255,255,255,0.2);
+      line-height: 1.7;
+    }
+    .hrs-gate-privacy a {
+      color: rgba(232,197,71,0.5);
+      text-decoration: none;
+    }
+
+    /* Success state */
+    #hrs-gate-success {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+    }
+    #hrs-gate-success.show { display: flex; }
+    .hrs-gate-success-avatar {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(232,197,71,0.5);
+    }
+    .hrs-gate-success-name {
+      font-family: var(--font-body, sans-serif);
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+    }
+    .hrs-gate-success-msg {
+      font-family: var(--font-mono, monospace);
+      font-size: 0.75rem;
+      color: var(--accent, #e8c547);
+      letter-spacing: 0.06em;
+    }
+    .hrs-gate-enter-btn {
+      margin-top: 0.5rem;
+      background: var(--accent, #e8c547);
+      color: #000;
+      border: none;
+      padding: 0.75rem 2.2rem;
+      border-radius: 4px;
+      font-family: var(--font-mono, monospace);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .hrs-gate-enter-btn:hover {
+      background: #f5d76e;
+      transform: translateY(-1px);
+    }
+
+    /* ── ADMIN VISITORS TAB ── */
+    .vis-header {
+      display: flex; align-items: center;
       justify-content: space-between;
       padding: 1.5rem 1.5rem 1rem;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .vis-header h3 {
       font-family: var(--font-mono, monospace);
-      font-size: 0.85rem;
-      color: var(--accent, #e8c547);
-      letter-spacing: 0.08em;
-      margin: 0;
+      font-size: 0.85rem; color: var(--accent, #e8c547);
+      letter-spacing: 0.08em; margin: 0;
     }
     .vis-count-badge {
       background: rgba(232,197,71,0.12);
       border: 1px solid rgba(232,197,71,0.25);
       color: var(--accent, #e8c547);
       font-family: var(--font-mono, monospace);
-      font-size: 0.72rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 20px;
+      font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 20px;
     }
     .vis-clear-btn {
-      background: rgba(231,76,60,0.1);
-      border: 1px solid rgba(231,76,60,0.3);
-      color: #e74c3c;
-      font-family: var(--font-mono, monospace);
-      font-size: 0.72rem;
-      padding: 0.35rem 0.85rem;
-      border-radius: 3px;
-      cursor: pointer;
-      transition: all 0.2s;
+      background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3);
+      color: #e74c3c; font-family: var(--font-mono, monospace);
+      font-size: 0.72rem; padding: 0.35rem 0.85rem; border-radius: 3px;
+      cursor: pointer; transition: all 0.2s;
     }
-    .vis-clear-btn:hover {
-      background: rgba(231,76,60,0.2);
-      border-color: rgba(231,76,60,0.5);
-    }
+    .vis-clear-btn:hover { background: rgba(231,76,60,0.2); }
     .vis-note {
       padding: 0.75rem 1.5rem;
       background: rgba(232,197,71,0.04);
       border-bottom: 1px solid rgba(255,255,255,0.04);
       font-family: var(--font-mono, monospace);
-      font-size: 0.72rem;
-      color: rgba(255,255,255,0.35);
-      line-height: 1.6;
+      font-size: 0.72rem; color: rgba(255,255,255,0.35); line-height: 1.6;
     }
     .vis-list {
       padding: 1rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      max-height: 60vh;
-      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0.75rem;
+      max-height: 60vh; overflow-y: auto;
     }
     .vis-card {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
+      display: flex; align-items: center; gap: 1rem;
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 6px;
-      padding: 0.9rem 1rem;
+      border-radius: 6px; padding: 0.9rem 1rem;
       transition: border-color 0.2s;
     }
     .vis-card:hover { border-color: rgba(232,197,71,0.2); }
     .vis-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid rgba(232,197,71,0.3);
-      flex-shrink: 0;
+      width: 42px; height: 42px; border-radius: 50%;
+      object-fit: cover; border: 2px solid rgba(232,197,71,0.3); flex-shrink: 0;
     }
     .vis-avatar-placeholder {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: rgba(232,197,71,0.1);
-      border: 2px solid rgba(232,197,71,0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-      flex-shrink: 0;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: rgba(232,197,71,0.1); border: 2px solid rgba(232,197,71,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
     }
     .vis-info { flex: 1; min-width: 0; }
     .vis-name {
-      font-family: var(--font-body, sans-serif);
-      font-size: 0.88rem;
-      color: #fff;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-family: var(--font-body, sans-serif); font-size: 0.88rem;
+      color: #fff; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vis-email {
-      font-family: var(--font-mono, monospace);
-      font-size: 0.73rem;
-      color: var(--accent, #e8c547);
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-family: var(--font-mono, monospace); font-size: 0.73rem;
+      color: var(--accent, #e8c547); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vis-meta {
-      font-family: var(--font-mono, monospace);
-      font-size: 0.68rem;
-      color: rgba(255,255,255,0.35);
-      margin-top: 4px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      font-family: var(--font-mono, monospace); font-size: 0.67rem;
+      color: rgba(255,255,255,0.32); margin-top: 4px;
+      display: flex; flex-wrap: wrap; gap: 0.5rem;
     }
-    .vis-meta span {
-      display: inline-flex;
-      align-items: center;
-      gap: 3px;
+    .vis-right {
+      display: flex; flex-direction: column;
+      align-items: flex-end; gap: 5px; flex-shrink: 0;
     }
     .vis-time {
-      font-family: var(--font-mono, monospace);
-      font-size: 0.68rem;
+      font-family: var(--font-mono, monospace); font-size: 0.67rem;
+      color: rgba(255,255,255,0.28); text-align: right;
+    }
+    .vis-new-badge {
+      font-family: var(--font-mono, monospace); font-size: 0.6rem;
+      background: var(--accent, #e8c547); color: #000;
+      padding: 0.15rem 0.4rem; border-radius: 2px; letter-spacing: 0.04em;
+    }
+    .vis-visit-count {
+      font-family: var(--font-mono, monospace); font-size: 0.65rem;
       color: rgba(255,255,255,0.3);
-      text-align: right;
-      white-space: nowrap;
-      flex-shrink: 0;
     }
     .vis-empty {
-      text-align: center;
-      padding: 3rem 1rem;
+      text-align: center; padding: 3rem 1rem;
       color: rgba(255,255,255,0.25);
-      font-family: var(--font-mono, monospace);
-      font-size: 0.82rem;
+      font-family: var(--font-mono, monospace); font-size: 0.82rem;
     }
-    .vis-empty .vis-empty-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
-    .vis-new-badge {
-      font-family: var(--font-mono, monospace);
-      font-size: 0.6rem;
-      background: var(--accent, #e8c547);
-      color: #000;
-      padding: 0.15rem 0.4rem;
-      border-radius: 2px;
-      letter-spacing: 0.04em;
-      flex-shrink: 0;
+    .vis-empty-icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+    .vis-setup-warn {
+      margin: 1rem 1.5rem; padding: 0.9rem 1rem;
+      background: rgba(231,76,60,0.08); border: 1px solid rgba(231,76,60,0.25);
+      border-radius: 4px; font-family: var(--font-mono,monospace);
+      font-size: 0.76rem; color: #e74c3c; line-height: 1.8;
+    }
+    .vis-setup-warn a { color: var(--accent, #e8c547); }
+    .vis-setup-warn code {
+      background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem;
+      border-radius: 2px; font-size: 0.72rem;
     }
   `;
-  document.head.appendChild(style);
+  document.head.appendChild(s);
 }
 
-function buildSignInToast() {
-  if (document.getElementById('hrs-signin-toast')) return;
-  var toast = document.createElement('div');
-  toast.id = 'hrs-signin-toast';
-  toast.innerHTML = `
-    <div class="toast-icon">👀</div>
-    <div class="toast-text">
-      <strong>You're on Hariharan's Portfolio</strong>
-      Sign in with Google so he knows you visited!
-      <div id="hrs-google-btn-wrap"></div>
+/* ── BUILD GATE HTML ───────────────────────────────────────────*/
+function buildGate() {
+  if (document.getElementById('hrs-signin-gate')) return;
+
+  var gate = document.createElement('div');
+  gate.id = 'hrs-signin-gate';
+  gate.innerHTML = `
+    <div class="hrs-gate-card">
+      <div class="hrs-gate-logo">🎬</div>
+      <div class="hrs-gate-name">Hariharan R · Portfolio</div>
+      <div class="hrs-gate-title">Welcome.</div>
+      <div class="hrs-gate-sub">
+        Sign in with your Google account to<br>
+        <strong>explore the full portfolio.</strong>
+      </div>
+
+      <div class="hrs-gate-divider">
+        <span></span><em>CONTINUE WITH</em><span></span>
+      </div>
+
+      <div id="hrs-gate-google-btn"></div>
+
+      <div id="hrs-gate-success">
+        <img class="hrs-gate-success-avatar" id="hrs-gate-avatar" src="" alt="">
+        <div class="hrs-gate-success-name" id="hrs-gate-welcome"></div>
+        <div class="hrs-gate-success-msg">✅ Visit recorded — Welcome!</div>
+        <button class="hrs-gate-enter-btn" onclick="hrsEnterPortfolio()">
+          ENTER PORTFOLIO →
+        </button>
+      </div>
+
+      <div class="hrs-gate-privacy">
+        🔒 Your sign-in is recorded only in this browser.<br>
+        No data is sent to any server.
+      </div>
     </div>
-    <button class="toast-close" onclick="hrsCloseToast()" title="Dismiss">✕</button>
   `;
-  document.body.appendChild(toast);
-
-  // Show after 3 seconds if not already prompted this session
-  if (!sessionStorage.getItem(SIGNIN_PROMPTED_KEY)) {
-    setTimeout(function() {
-      toast.classList.add('show');
-      sessionStorage.setItem(SIGNIN_PROMPTED_KEY, '1');
-      // Render Google button inside toast
-      if (window.google && window.google.accounts) {
-        renderGoogleBtn('hrs-google-btn-wrap', true);
-      }
-    }, 3000);
-  }
+  document.body.appendChild(gate);
 }
 
-window.hrsCloseToast = function() {
-  var t = document.getElementById('hrs-signin-toast');
-  if (t) { t.classList.remove('show'); setTimeout(function(){ t.remove(); }, 400); }
+/* ── SHOW / HIDE GATE ─────────────────────────────────────────*/
+function showGate() {
+  var gate = document.getElementById('hrs-signin-gate');
+  if (!gate) return;
+  // Block scroll while gate is open
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(function() {
+    gate.classList.add('visible');
+  });
+}
+
+window.hrsEnterPortfolio = function() {
+  var gate = document.getElementById('hrs-signin-gate');
+  if (!gate) return;
+  gate.classList.add('hiding');
+  document.body.style.overflow = '';
+  setTimeout(function() { gate.remove(); }, 600);
 };
 
-/* ── GOOGLE IDENTITY SERVICES ─────────────────────────────────*/
-function renderGoogleBtn(containerId, compact) {
-  var container = document.getElementById(containerId);
-  if (!container || !window.google) return;
-  container.innerHTML = '';
-  google.accounts.id.renderButton(container, {
+/* ── GOOGLE SIGN-IN ───────────────────────────────────────────*/
+function renderGateGoogleBtn() {
+  var wrap = document.getElementById('hrs-gate-google-btn');
+  if (!wrap || !window.google) return;
+  wrap.innerHTML = '';
+  google.accounts.id.renderButton(wrap, {
     type: 'standard',
     theme: 'filled_black',
-    size: compact ? 'medium' : 'large',
+    size: 'large',
     text: 'signin_with',
     shape: 'rectangular',
     logo_alignment: 'left',
-    width: compact ? 240 : 280
+    width: 280
   });
+}
+
+function handleGoogleCredential(response) {
+  try {
+    var payload = JSON.parse(
+      atob(response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))
+    );
+    var profile = {
+      name:    payload.name,
+      email:   payload.email,
+      picture: payload.picture
+    };
+
+    // Save as signed-in user (skip gate on return visits)
+    setSignedInUser(profile);
+    recordVisitor(profile);
+    showGateSuccess(profile);
+
+    // Refresh admin visitors tab if open
+    if (document.getElementById('tab-visitors') &&
+        document.getElementById('tab-visitors').classList.contains('active')) {
+      renderVisitorsTab();
+    }
+  } catch(err) {
+    console.error('[Visitor Gate] Failed to decode credential:', err);
+  }
+}
+
+function showGateSuccess(profile) {
+  // Hide the sign-in form, show success
+  var googleBtnEl = document.getElementById('hrs-gate-google-btn');
+  var divider = document.querySelector('.hrs-gate-divider');
+  var sub = document.querySelector('.hrs-gate-sub');
+  if (googleBtnEl) googleBtnEl.style.display = 'none';
+  if (divider)     divider.style.display = 'none';
+  if (sub)         sub.style.display = 'none';
+
+  var success = document.getElementById('hrs-gate-success');
+  var avatar  = document.getElementById('hrs-gate-avatar');
+  var welcome = document.getElementById('hrs-gate-welcome');
+
+  if (avatar)  avatar.src = profile.picture || '';
+  if (welcome) welcome.textContent = 'Hi, ' + (profile.name.split(' ')[0]) + '! 👋';
+  if (success) success.classList.add('show');
+
+  // Auto-enter after 2.5 seconds
+  setTimeout(function() { hrsEnterPortfolio(); }, 2500);
 }
 
 function initGoogleSignIn() {
   if (!window.google || !window.google.accounts) return;
   if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
-    console.warn('[Visitor Tracker] Set your GOOGLE_CLIENT_ID in visitor-tracker.js');
+    console.warn('[Visitor Gate] ⚠️ Set your GOOGLE_CLIENT_ID in visitor-tracker.js');
+    // Show a placeholder message in gate
+    var wrap = document.getElementById('hrs-gate-google-btn');
+    if (wrap) wrap.innerHTML = '<div style="font-family:monospace;font-size:0.72rem;color:#e74c3c;padding:0.8rem;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.25);border-radius:4px;text-align:left;line-height:1.8;">⚠️ Admin: Set your<br><code style="background:rgba(255,255,255,0.07);padding:0.1rem 0.3rem;border-radius:2px;">GOOGLE_CLIENT_ID</code><br>in visitor-tracker.js</div>';
     return;
   }
 
@@ -338,94 +494,39 @@ function initGoogleSignIn() {
     client_id: GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential,
     auto_select: false,
-    cancel_on_tap_outside: true
+    cancel_on_tap_outside: false  // mandatory — can't dismiss
   });
 
-  // Render btn in toast if visible
-  renderGoogleBtn('hrs-google-btn-wrap', true);
-}
-
-function handleGoogleCredential(response) {
-  try {
-    // Decode JWT payload (no library needed — it's just base64)
-    var payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
-    var profile = {
-      name:    payload.name,
-      email:   payload.email,
-      picture: payload.picture
-    };
-    recordVisitor(profile);
-    hrsCloseToast();
-    showSignInSuccess(profile);
-    // Refresh admin visitors tab if open
-    if (document.getElementById('admin-panel') &&
-        document.getElementById('admin-panel').classList.contains('open')) {
-      renderVisitorsTab();
-    }
-  } catch(err) {
-    console.error('[Visitor Tracker] Failed to decode credential:', err);
-  }
-}
-
-function showSignInSuccess(profile) {
-  var toast = document.createElement('div');
-  toast.style.cssText = `
-    position:fixed;bottom:90px;right:28px;z-index:99999;
-    background:#1a1a1a;border:1px solid rgba(46,204,113,0.3);
-    border-radius:8px;padding:12px 16px;
-    display:flex;align-items:center;gap:10px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.55);
-    font-family:var(--font-body,sans-serif);font-size:0.82rem;color:#fff;
-    opacity:0;transform:translateY(16px);
-    transition:opacity 0.3s,transform 0.3s;
-    max-width:280px;
-  `;
-  toast.innerHTML = (profile.picture
-    ? '<img src="' + profile.picture + '" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">'
-    : '<span style="font-size:1.2rem">✅</span>') +
-    '<div><div style="font-weight:600;margin-bottom:2px;">Thanks, ' + (profile.name.split(' ')[0]) + '!</div>' +
-    '<div style="color:rgba(255,255,255,0.5);font-size:0.75rem;">Your visit has been recorded 🎉</div></div>';
-  document.body.appendChild(toast);
-  setTimeout(function() { toast.style.opacity='1'; toast.style.transform='translateY(0)'; }, 50);
-  setTimeout(function() {
-    toast.style.opacity='0'; toast.style.transform='translateY(16px)';
-    setTimeout(function() { toast.remove(); }, 400);
-  }, 4000);
+  renderGateGoogleBtn();
 }
 
 /* ── ADMIN PANEL — VISITORS TAB ───────────────────────────────*/
 function injectVisitorsTab() {
-  // 1. Add tab button
   var tabBar = document.querySelector('.admin-tabs');
-  if (tabBar && !document.querySelector('[data-tab="visitors"]')) {
+  if (tabBar && !document.querySelector('[data-hrs-visitors]')) {
     var btn = document.createElement('button');
     btn.className = 'admin-tab';
-    btn.setAttribute('data-tab', 'visitors');
+    btn.setAttribute('data-hrs-visitors', '1');
     btn.textContent = '👥 Visitors';
-    btn.onclick = function(e) {
-      document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    btn.onclick = function() {
+      document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
       btn.classList.add('active');
-      document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.admin-section').forEach(function(s){ s.classList.remove('active'); });
       var sec = document.getElementById('tab-visitors');
-      if (sec) sec.classList.add('active');
+      if (sec) { sec.classList.add('active'); renderVisitorsTab(); }
     };
     tabBar.appendChild(btn);
   }
 
-  // 2. Add tab content section
-  var panel = document.getElementById('admin-panel');
-  if (panel && !document.getElementById('tab-visitors')) {
+  if (!document.getElementById('tab-visitors')) {
     var section = document.createElement('div');
     section.id = 'tab-visitors';
     section.className = 'admin-section';
     section.innerHTML = '<div id="visitors-content"></div>';
-    // Insert before the panel footer / save bar
-    var footer = panel.querySelector('.admin-footer') || panel.querySelector('.admin-actions');
-    if (footer) {
-      panel.insertBefore(section, footer);
-    } else {
-      panel.appendChild(section);
-    }
+    var panel = document.getElementById('admin-panel');
+    var footer = panel && (panel.querySelector('.admin-actions') || panel.querySelector('.admin-footer'));
+    if (footer) panel.insertBefore(section, footer);
+    else if (panel) panel.appendChild(section);
   }
 }
 
@@ -435,53 +536,55 @@ function renderVisitorsTab() {
 
   var visitors = getVisitors();
   var nowTs = Date.now();
+  var clientIdSet = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE');
+
+  var warnHTML = clientIdSet ? '' : `
+    <div class="vis-setup-warn">
+      ⚠️ <strong>Setup needed:</strong> Open <code>visitor-tracker.js</code> and replace<br>
+      <code>YOUR_GOOGLE_CLIENT_ID_HERE</code> with your real Client ID.<br>
+      <a href="https://console.cloud.google.com/" target="_blank">→ Get a free Google Client ID</a>
+    </div>`;
 
   var listHTML = '';
   if (visitors.length === 0) {
-    listHTML = `
-      <div class="vis-empty">
-        <span class="vis-empty-icon">🔍</span>
-        No signed-in visitors yet.<br>
-        Visitors who click "Sign in with Google" will appear here.
-      </div>`;
+    listHTML = `<div class="vis-empty">
+      <span class="vis-empty-icon">🔍</span>
+      No visitors yet.<br>Visitors who sign in will appear here.
+    </div>`;
   } else {
-    listHTML = visitors.map(function(v, i) {
+    listHTML = visitors.map(function(v) {
       var date = new Date(v.time);
-      var timeAgo = getTimeAgo(date);
-      var isNew = (nowTs - date.getTime()) < 3600000; // within 1 hour
+      var isNew = (nowTs - date.getTime()) < 3600000;
       var avatarHTML = v.picture
-        ? '<img class="vis-avatar" src="' + v.picture + '" alt="' + v.name + '" onerror="this.style.display=\'none\'">'
+        ? '<img class="vis-avatar" src="' + v.picture + '" alt="" onerror="this.style.display=\'none\'">'
         : '<div class="vis-avatar-placeholder">👤</div>';
-      return `
-        <div class="vis-card">
-          ${avatarHTML}
-          <div class="vis-info">
-            <div class="vis-name">${v.name}</div>
-            <div class="vis-email">✉️ ${v.email}</div>
-            <div class="vis-meta">
-              <span>${v.device}</span>
-              <span>🌐 ${v.browser}</span>
-              ${v.ref && v.ref !== 'Direct' ? '<span>🔗 ' + trimRef(v.ref) + '</span>' : '<span>🔗 Direct</span>'}
-            </div>
+      var lastSeen = v.lastSeen ? 'Last: ' + getTimeAgo(new Date(v.lastSeen)) : '';
+      return `<div class="vis-card">
+        ${avatarHTML}
+        <div class="vis-info">
+          <div class="vis-name">${v.name}</div>
+          <div class="vis-email">✉️ ${v.email}</div>
+          <div class="vis-meta">
+            <span>${v.device}</span>
+            <span>🌐 ${v.browser}</span>
+            <span>🔗 ${trimRef(v.ref)}</span>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-            ${isNew ? '<span class="vis-new-badge">NEW</span>' : ''}
-            <div class="vis-time">${timeAgo}<br><span style="font-size:0.62rem;opacity:0.6;">${date.toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'})}</span></div>
+        </div>
+        <div class="vis-right">
+          ${isNew ? '<span class="vis-new-badge">NEW</span>' : ''}
+          <div class="vis-time">
+            ${getTimeAgo(date)}<br>
+            <span style="font-size:0.6rem;opacity:0.6;">${date.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span>
           </div>
-        </div>`;
+          ${(v.visits > 1) ? '<div class="vis-visit-count">🔁 ' + v.visits + ' visits</div>' : ''}
+          ${lastSeen ? '<div class="vis-visit-count">' + lastSeen + '</div>' : ''}
+        </div>
+      </div>`;
     }).join('');
   }
 
-  var clientIdSet = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE');
-  var setupWarning = clientIdSet ? '' : `
-    <div style="margin:1rem 1.5rem;padding:0.9rem 1rem;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.25);border-radius:4px;font-family:var(--font-mono,monospace);font-size:0.76rem;color:#e74c3c;line-height:1.7;">
-      ⚠️ <strong>Setup needed:</strong> Open <code>visitor-tracker.js</code> and replace<br>
-      <code>YOUR_GOOGLE_CLIENT_ID_HERE</code> with your real Client ID.<br>
-      <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--accent,#e8c547);">→ Get a free Google Client ID</a>
-    </div>`;
-
   container.innerHTML = `
-    ${setupWarning}
+    ${warnHTML}
     <div class="vis-header">
       <h3>👥 VISITOR LOG</h3>
       <div style="display:flex;align-items:center;gap:0.75rem;">
@@ -490,12 +593,10 @@ function renderVisitorsTab() {
       </div>
     </div>
     <div class="vis-note">
-      Only visitors who voluntarily clicked "Sign in with Google" are shown here.
-      Their name, Gmail, device, and visit time are stored only in your browser's localStorage.
+      Visitors must sign in with Google before accessing your portfolio.
+      Data is stored only in this browser's localStorage — never on a server.
     </div>
-    <div class="vis-list">
-      ${listHTML}
-    </div>`;
+    <div class="vis-list">${listHTML}</div>`;
 }
 
 window.hrsClearVisitors = function() {
@@ -504,58 +605,114 @@ window.hrsClearVisitors = function() {
   renderVisitorsTab();
 };
 
-/* ── TIME HELPERS ─────────────────────────────────────────────*/
+/* ── HELPERS ──────────────────────────────────────────────────*/
 function getTimeAgo(date) {
   var diff = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diff < 60)   return 'Just now';
-  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 60)    return 'Just now';
+  if (diff < 3600)  return Math.floor(diff/60) + 'm ago';
   if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
   return Math.floor(diff/86400) + 'd ago';
 }
-
 function trimRef(ref) {
-  try {
-    var url = new URL(ref);
-    return url.hostname.replace('www.','');
-  } catch(e) { return ref.slice(0, 30); }
+  if (!ref || ref === 'Direct') return 'Direct';
+  try { return new URL(ref).hostname.replace('www.',''); }
+  catch(e) { return ref.slice(0,25); }
 }
 
-/* ── HOOK INTO ADMIN PANEL OPEN ───────────────────────────────*/
-// Patch the existing openAdmin function to also render visitors tab
+/* ── PATCH openAdmin ──────────────────────────────────────────*/
 (function() {
-  var _origOpenAdmin = window.openAdmin;
+  var _orig = window.openAdmin;
   window.openAdmin = function() {
-    if (_origOpenAdmin) _origOpenAdmin();
-    // Give the panel a tick to render, then inject visitors tab
+    if (_orig) _orig();
     setTimeout(function() {
       injectVisitorsTab();
-      renderVisitorsTab();
-    }, 50);
+      // Auto-render if visitors tab is active
+      var sec = document.getElementById('tab-visitors');
+      if (sec && sec.classList.contains('active')) renderVisitorsTab();
+    }, 60);
   };
 })();
 
-/* ── INIT ─────────────────────────────────────────────────────*/
-function initVisitorTracker() {
-  injectGoogleStyles();
-  buildSignInToast();
+/* ── HOOK INTO INTRO END ──────────────────────────────────────
+   intro.js removes a loading/intro element when done.
+   We watch for that, then show the gate.
+   Also supports a manual trigger: window.hrsIntroFinished()
+──────────────────────────────────────────────────────────────*/
+window.hrsIntroFinished = function() {
+  showGate();
+  // Render Google button now that GSI may be loaded
+  if (window.google && window.google.accounts) {
+    renderGateGoogleBtn();
+  }
+};
 
-  // Load Google Identity Services script
-  var gsiScript = document.createElement('script');
-  gsiScript.src = 'https://accounts.google.com/gsi/client';
-  gsiScript.async = true;
-  gsiScript.defer = true;
-  gsiScript.onload = function() {
-    initGoogleSignIn();
-    // If toast is already showing, render the button inside it
-    var wrap = document.getElementById('hrs-google-btn-wrap');
-    if (wrap) renderGoogleBtn('hrs-google-btn-wrap', true);
-  };
-  document.head.appendChild(gsiScript);
+function watchForIntroEnd() {
+  // Common intro element IDs / classes used in portfolio starters
+  var introSelectors = ['#intro', '#intro-screen', '#loader', '#preloader',
+                        '.intro', '.intro-screen', '.loader', '.preloader'];
+
+  var introEl = null;
+  for (var i = 0; i < introSelectors.length; i++) {
+    introEl = document.querySelector(introSelectors[i]);
+    if (introEl) break;
+  }
+
+  if (introEl) {
+    // Watch for it being hidden/removed
+    var observer = new MutationObserver(function(mutations) {
+      var el = document.querySelector(introSelectors.join(','));
+      if (!el || el.style.display === 'none' || el.style.opacity === '0' ||
+          el.classList.contains('hidden') || el.classList.contains('done')) {
+        observer.disconnect();
+        setTimeout(window.hrsIntroFinished, 300);
+      }
+    });
+    observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+
+    // Fallback: if intro takes more than 8s, show gate anyway
+    setTimeout(function() {
+      observer.disconnect();
+      if (document.getElementById('hrs-signin-gate') &&
+          !document.getElementById('hrs-signin-gate').classList.contains('visible')) {
+        window.hrsIntroFinished();
+      }
+    }, 8000);
+  } else {
+    // No intro found — show gate after short delay
+    setTimeout(window.hrsIntroFinished, 800);
+  }
 }
 
-// Run after DOM is ready
+/* ── INIT ─────────────────────────────────────────────────────*/
+function init() {
+  injectStyles();
+
+  // Check if this visitor already signed in before (returning visitor)
+  var existingUser = getSignedInUser();
+  if (existingUser) {
+    // Returning visitor — record the visit silently and skip gate
+    recordVisitor(existingUser);
+    return; // No gate shown
+  }
+
+  // New visitor — build gate and wait for intro
+  buildGate();
+
+  // Load Google Identity Services
+  var gsi = document.createElement('script');
+  gsi.src = 'https://accounts.google.com/gsi/client';
+  gsi.async = true;
+  gsi.defer = true;
+  gsi.onload = function() {
+    initGoogleSignIn();
+  };
+  document.head.appendChild(gsi);
+
+  watchForIntroEnd();
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initVisitorTracker);
+  document.addEventListener('DOMContentLoaded', init);
 } else {
-  initVisitorTracker();
+  init();
 }
