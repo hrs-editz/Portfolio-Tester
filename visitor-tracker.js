@@ -568,13 +568,19 @@ function injectVisitorsTab() {
     btn.className = 'admin-tab';
     btn.setAttribute('data-hrs-visitors', '1');
     btn.textContent = '👥 Visitors';
-    btn.onclick = function() {
-      document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
-      btn.classList.add('active');
-      document.querySelectorAll('.admin-section').forEach(function(s){ s.classList.remove('active'); });
-      var sec = document.getElementById('tab-visitors');
-      if (sec) { sec.classList.add('active'); renderVisitorsTab(); }
-    };
+    // ✅ CORRECT — hooks into the page's switchTab system
+btn.onclick = function() {
+  if (window.switchTab) {
+    window.switchTab('visitors');
+  } else {
+    document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    document.querySelectorAll('.admin-section').forEach(function(s){ s.classList.remove('active'); });
+    var sec = document.getElementById('tab-visitors');
+    if (sec) { sec.classList.add('active'); }
+  }
+  renderVisitorsTab();
+};
     tabBar.appendChild(btn);
   }
   if (!document.getElementById('tab-visitors')) {
@@ -655,17 +661,18 @@ function trimRef(ref) {
 }
 
 /* ── PATCH openAdmin ──────────────────────────────────────────*/
-(function() {
+// ✅ CORRECT — waits until everything is loaded
+window.addEventListener('load', function() {
   var _orig = window.openAdmin;
   window.openAdmin = function() {
-    if (_orig) _orig();
+    if (_orig) _orig.apply(this, arguments);
     setTimeout(function() {
       injectVisitorsTab();
       var sec = document.getElementById('tab-visitors');
       if (sec && sec.classList.contains('active')) renderVisitorsTab();
     }, 60);
   };
-})();
+});
 
 /* ── INTRO DETECTION ──────────────────────────────────────────*/
 window.hrsIntroFinished = function() {
