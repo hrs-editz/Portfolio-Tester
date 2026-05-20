@@ -63,13 +63,15 @@ function injectStyles() {
      SIGN-IN GATE
   ══════════════════════════════════════ */
   #hrs-signin-gate {
-    position: fixed; inset: 0; z-index: 999999;
+    position: fixed; inset: 0; z-index: 99990;
     background: #0a0a0a;
     display: flex; align-items: center; justify-content: center;
     flex-direction: column;
     opacity: 0; transition: opacity 0.5s ease; overflow: hidden;
   }
   #hrs-signin-gate.visible { opacity: 1; }
+  /* Keep custom cursor above gate */
+  #cursor-dot, #cursor-ring { z-index: 999999 !important; }
   #hrs-signin-gate.hiding  { opacity: 0; pointer-events: none; }
   #hrs-signin-gate::before {
     content: ''; position: absolute; inset: 0;
@@ -386,6 +388,15 @@ function showGate() {
   var gate = document.getElementById('hrs-signin-gate');
   if (!gate) return;
   document.body.style.overflow = 'hidden';
+
+  /* ── Relay mousemove so the custom cursor works over the gate overlay ── */
+  gate.addEventListener('mousemove', function(e) {
+    var dot  = document.getElementById('cursor-dot');
+    var ring = document.getElementById('cursor-ring');
+    if (dot)  { dot.style.left  = e.clientX + 'px'; dot.style.top  = e.clientY + 'px'; }
+    if (ring) { ring.style.left = e.clientX + 'px'; ring.style.top = e.clientY + 'px'; }
+  });
+
   requestAnimationFrame(function() { gate.classList.add('visible'); });
 }
 
