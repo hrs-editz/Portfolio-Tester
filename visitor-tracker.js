@@ -14,7 +14,7 @@
 // Replace with your own Google OAuth Client ID
 // Get one free at: https://console.cloud.google.com/
 // Authorised JS origins: add your GitHub Pages URL + http://localhost
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '633973864394-r0h9go0n37rj9ihog3johihinvs1751r.apps.googleusercontent.com';
 
 const VISITOR_STORAGE_KEY = 'hrs_visitors';
 const SIGNIN_PROMPTED_KEY = 'hrs_signin_prompted';
