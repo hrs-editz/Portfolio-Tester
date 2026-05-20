@@ -3,7 +3,7 @@
    Mandatory Google Sign-In Gate + Profile Chip + Admin Visitors Tab
 ================================================================ */
 
-const GOOGLE_CLIENT_ID    = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID    = '633973864394-r0h9go0n37rj9ihog3johihinvs1751r.apps.googleusercontent.com';
 const VISITOR_STORAGE_KEY = 'hrs_visitors';
 const SIGNED_IN_KEY       = 'hrs_signed_in_user';
 
