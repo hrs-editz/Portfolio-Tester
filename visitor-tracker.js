@@ -551,15 +551,17 @@ function buildProfileChip(profile) {
     chip.classList.toggle('open');
   });
 
-  // Insert into #header-right (before freelance-bar)
-  var headerRight = document.getElementById('header-right');
+  // Insert into the slot right after freelance-bar
+  var slot = document.getElementById('hrs-profile-chip-slot');
   var freelanceBar = document.getElementById('freelance-bar');
-  if (headerRight && freelanceBar) {
-    headerRight.insertBefore(chip, freelanceBar);
+  var headerRight = document.getElementById('header-right');
+  if (slot) {
+    slot.appendChild(chip);
+  } else if (freelanceBar) {
+    freelanceBar.insertAdjacentElement('afterend', chip);
   } else if (headerRight) {
     headerRight.appendChild(chip);
   } else {
-    // Fallback — fixed position top-right
     chip.style.cssText = 'position:fixed;top:18px;right:20px;z-index:99998;';
     document.body.appendChild(chip);
   }
