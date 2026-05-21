@@ -679,10 +679,18 @@ function injectVisitorsTab() {
     section.id = 'tab-visitors';
     section.className = 'admin-section';
     section.innerHTML = '<div id="visitors-content"></div>';
-    var panel = document.getElementById('admin-panel');
-    var footer = panel && (panel.querySelector('.admin-actions') || panel.querySelector('.admin-footer'));
-    if (footer) panel.insertBefore(section, footer);
-    else if (panel) panel.appendChild(section);
+    // Must go inside .admin-box, before .admin-actions
+    var box = document.querySelector('.admin-box');
+    var actions = box && box.querySelector('.admin-actions');
+    if (actions) {
+      box.insertBefore(section, actions);
+    } else if (box) {
+      box.appendChild(section);
+    } else {
+      // last resort
+      var panel = document.getElementById('admin-panel');
+      if (panel) panel.appendChild(section);
+    }
   }
 }
 
