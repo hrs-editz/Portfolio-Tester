@@ -583,6 +583,7 @@ window.hrsCloseChip = function() {
 window.hrsSignOut = function() {
   if (!confirm('Sign out? You\'ll need to sign in again to view the portfolio.')) return;
   clearSignedInUser();
+  try { localStorage.removeItem(LAST_EMAIL_KEY); } catch(e) {}  // clear hint on sign-out
   // Revoke Google session silently
   if (window.google && window.google.accounts && window.google.accounts.id) {
     try { google.accounts.id.disableAutoSelect(); } catch(e) {}
@@ -610,6 +611,7 @@ function handleGoogleCredential(response) {
     );
     var profile = { name: payload.name, email: payload.email, picture: payload.picture };
     setSignedInUser(profile);
+    saveLastUsedEmail(profile.email);  // ← remembered for next visit's login_hint
     recordVisitor(profile);
     buildProfileChip(profile);
 
@@ -652,6 +654,25 @@ function showGateSuccess(profile) {
 var _autoSignInPending = true;
 var _introFinishedBeforeGSI = false;
 
+/* ── LAST-USED EMAIL HINT ─────────────────────────────────────
+   We store the email the user signed in with last time.
+   Passing it as login_hint tells Google to skip the account
+   picker entirely and auto-select that exact account — even
+   when the browser has multiple Gmail sessions active.
+──────────────────────────────────────────────────────────────*/
+var LAST_EMAIL_KEY = 'hrs_last_email';
+
+function getLastUsedEmail() {
+  // Priority 1: the full signed-in profile (returning visitor within session)
+  var existing = getSignedInUser();
+  if (existing && existing.email) return existing.email;
+  // Priority 2: email hint stored from a previous session
+  try { return localStorage.getItem(LAST_EMAIL_KEY) || ''; } catch(e) { return ''; }
+}
+function saveLastUsedEmail(email) {
+  try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch(e) {}
+}
+
 function initGoogleSignIn() {
   if (!window.google || !window.google.accounts) return;
   if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
@@ -661,33 +682,43 @@ function initGoogleSignIn() {
     return;
   }
 
-  google.accounts.id.initialize({
-    client_id:          GOOGLE_CLIENT_ID,
-    callback:           handleGoogleCredential,
-    auto_select:        true,   // silently sign in users with one active Google session
+  var lastEmail = getLastUsedEmail();
+
+  var gsiConfig = {
+    client_id:             GOOGLE_CLIENT_ID,
+    callback:              handleGoogleCredential,
+    // auto_select: true  → with ONE Google session  → silent sign-in, no UI shown
+    //                    → with MULTIPLE sessions   → picks the one matching login_hint silently
+    //                    → first-ever visit, no hint → shows One Tap account chooser (unavoidable)
+    auto_select:           true,
     cancel_on_tap_outside: false,
-    context:            'signin',
-    itp_support:        true    // Safari ITP support
-  });
+    context:               'signin',
+    itp_support:           true   // Safari ITP support
+  };
+
+  // login_hint: tells Google exactly which Gmail account to use.
+  // Returning users with multiple Gmail sessions skip the picker entirely.
+  if (lastEmail) {
+    gsiConfig.login_hint = lastEmail;
+  }
+
+  google.accounts.id.initialize(gsiConfig);
 
   // Attempt silent / One Tap auto sign-in.
-  // Google calls the prompt callback immediately if auto-sign-in is not possible.
+  // Google calls this callback immediately when auto-sign-in is not possible.
   google.accounts.id.prompt(function(notification) {
-    // isDisplayed  → One Tap UI shown (user interaction needed — NOT silent)
-    // isNotDisplayed / isSkippedMoment → auto-sign-in not possible
     if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      // Auto sign-in won't fire — fall back to manual gate button
+      // Auto sign-in won't fire — fall back to manual gate
       _autoSignInPending = false;
       renderGateGoogleBtn();
-      // If the intro already finished while we were waiting, show the gate now
       if (_introFinishedBeforeGSI) showGate();
     }
-    // If auto_select fires silently, handleGoogleCredential is called directly
+    // If auto_select fires silently, handleGoogleCredential is called
     // and the gate is dismissed without ever being shown.
   });
 
-  // Safety timeout: if Google's prompt callback never fires (e.g. blocked by
-  // browser extensions), fall back to manual gate after 3 s.
+  // Safety net: if Google's prompt callback never fires (ad blocker, extension,
+  // browser privacy setting), show the manual gate after 3 s.
   setTimeout(function() {
     if (!_autoSignInPending) return;
     _autoSignInPending = false;
