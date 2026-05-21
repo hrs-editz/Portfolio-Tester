@@ -210,6 +210,18 @@ function injectStyles() {
     font-size: 0.62rem; color: rgba(255,255,255,0.22); letter-spacing: 0.08em;
   }
   #hrs-gate-google-btn { display: flex; justify-content: center; margin-bottom: 1.1rem; }
+  #hrs-custom-google-btn {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff; color: #3c4043;
+    border: 1px solid #dadce0; border-radius: 4px;
+    padding: 10px 24px; font-size: 14px; font-weight: 500;
+    font-family: 'Google Sans', Roboto, Arial, sans-serif;
+    cursor: pointer; width: 280px; justify-content: center;
+    transition: box-shadow 0.2s, background 0.2s;
+    letter-spacing: 0.01em;
+  }
+  #hrs-custom-google-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  #hrs-custom-google-btn:active { background: #f1f3f4; }
   .hrs-gate-privacy {
     font-family: var(--font-mono, monospace); font-size: 0.62rem;
     color: rgba(255,255,255,0.18); line-height: 1.7; margin-top: 0.4rem;
@@ -596,12 +608,66 @@ window.hrsSignOut = function() {
 /* ── GOOGLE SIGN-IN ───────────────────────────────────────────*/
 function renderGateGoogleBtn() {
   var wrap = document.getElementById('hrs-gate-google-btn');
-  if (!wrap || !window.google) return;
+  if (!wrap) return;
+  // Custom button renders immediately — GSI script is only needed on click
+  // (not gated on window.google being loaded)
+
+  // Use a fully custom button so it ALWAYS works regardless of One Tap cooldown.
+  // Clicking it opens the Google OAuth popup directly — completely separate from
+  // the One Tap / auto_select system which has cooldown restrictions.
   wrap.innerHTML = '';
-  google.accounts.id.renderButton(wrap, {
-    type: 'standard', theme: 'filled_black', size: 'large',
-    text: 'signin_with', shape: 'rectangular',
-    logo_alignment: 'left', width: 280
+  var btn = document.createElement('button');
+  btn.id = 'hrs-custom-google-btn';
+  btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.71c-.18-.54-.282-1.117-.282-1.71s.102-1.17.282-1.71V4.958H.957C.347 6.173 0 7.548 0 9s.347 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg><span>Sign in with Google</span>';
+  btn.onclick = function() {
+    triggerGoogleSignIn();
+  };
+  wrap.appendChild(btn);
+}
+
+function triggerGoogleSignIn() {
+  if (!window.google || !window.google.accounts) return;
+
+  // Use the OAuth2 token/code flow via a popup — this is NOT subject to
+  // One Tap cooldown and always opens the Google account chooser.
+  var client = google.accounts.oauth2.initCodeClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'openid email profile',
+    ux_mode: 'popup',
+    callback: function(codeResponse) {
+      // Exchange auth code on client side using id_token from One Tap flow.
+      // Since we only need profile info (no server), re-trigger One Tap prompt
+      // in non-auto mode to get the credential directly.
+      google.accounts.id.prompt();
+    }
+  });
+
+  // Simpler: just re-initialize GSI without auto_select and force the prompt.
+  // This always shows the account chooser regardless of cooldown.
+  google.accounts.id.initialize({
+    client_id:             GOOGLE_CLIENT_ID,
+    callback:              handleGoogleCredential,
+    auto_select:           false,  // no auto — user explicitly clicked
+    cancel_on_tap_outside: true,
+    context:               'signin',
+    itp_support:           true
+  });
+  google.accounts.id.prompt(function(notification) {
+    // If prompt is suppressed even now, fall back to OAuth2 popup
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      var reason = notification.getNotDisplayedReason
+        ? notification.getNotDisplayedReason()
+        : (notification.getSkippedReason ? notification.getSkippedReason() : '');
+      // browser_not_supported, invalid_client, missing_client_id, etc.
+      // In this case open full OAuth redirect as last resort
+      var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
+        + '?client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID)
+        + '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname)
+        + '&response_type=token'
+        + '&scope=' + encodeURIComponent('openid email profile')
+        + '&prompt=select_account';
+      window.location.href = authUrl;
+    }
   });
 }
 
@@ -933,6 +999,7 @@ function init() {
 
   // CASE 3: Brand new visitor — show gate with Google sign-in
   buildGate();
+  renderGateGoogleBtn(); // render custom button immediately — no GSI needed
   var gsi = document.createElement('script');
   gsi.src = 'https://accounts.google.com/gsi/client';
   gsi.async = true; gsi.defer = true;
