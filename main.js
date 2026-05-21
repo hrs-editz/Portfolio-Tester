@@ -712,9 +712,21 @@ function openAdmin() { populateAdmin(); document.getElementById('admin-panel').c
 function closeAdmin() { document.getElementById('admin-panel').classList.remove('open'); }
 function switchTab(name) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  // Find the matching tab button by data-tab or text, fallback to event.target
+  var matchBtn = null;
+  document.querySelectorAll('.admin-tab').forEach(function(t) {
+    if (t.getAttribute('data-tab') === name || t.textContent.toLowerCase().includes(name)) {
+      matchBtn = t;
+    }
+  });
+  if (matchBtn) {
+    matchBtn.classList.add('active');
+  } else if (typeof event !== 'undefined' && event && event.target) {
+    event.target.classList.add('active');
+  }
   document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
+  var sec = document.getElementById('tab-' + name);
+  if (sec) sec.classList.add('active');
 }
 function set(id,val) { const el=document.getElementById(id); if(el) el.value=val; }
 function get(id) { const el=document.getElementById(id); return el ? el.value.trim() : ''; }
