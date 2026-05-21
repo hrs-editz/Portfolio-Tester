@@ -18,16 +18,14 @@ const SIGNED_IN_KEY       = 'hrs_signed_in_user';
    5. In Firestore → Rules, set:
         allow read, write: if true;   ← for now (tighten later)
 ──────────────────────────────────────────────────────────────*/
-const firebaseConfig = {
-  apiKey: "AIzaSyBX7fB1VjxiXwsxi84ef6mJAa5L0rD06mM",
-  authDomain: "hrs-editz-counter.firebaseapp.com",
-  databaseURL: "https://hrs-editz-counter-default-rtdb.firebaseio.com",
-  projectId: "hrs-editz-counter",
-  storageBucket: "hrs-editz-counter.firebasestorage.app",
-  messagingSenderId: "123122757550",
-  appId: "1:123122757550:web:45790ce5c6e8b18d5ae23f"
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
 };
-
 
 const FIRESTORE_COLLECTION = 'portfolio_visitors'; // Firestore collection name
 
