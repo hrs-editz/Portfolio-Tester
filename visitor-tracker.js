@@ -612,7 +612,16 @@ function handleGoogleCredential(response) {
     setSignedInUser(profile);
     recordVisitor(profile);
     buildProfileChip(profile);
-    showGateSuccess(profile);
+
+    // If gate is not visible (auto sign-in happened silently), skip success screen
+    var gate = document.getElementById('hrs-signin-gate');
+    var gateVisible = gate && gate.classList.contains('visible');
+    if (gateVisible) {
+      showGateSuccess(profile);   // manual sign-in — show welcome screen
+    } else {
+      hrsEnterPortfolio();        // auto sign-in — go straight in
+    }
+
     if (document.getElementById('tab-visitors') &&
         document.getElementById('tab-visitors').classList.contains('active')) {
       renderVisitorsTab();
@@ -648,9 +657,23 @@ function initGoogleSignIn() {
   google.accounts.id.initialize({
     client_id: GOOGLE_CLIENT_ID,
     callback: handleGoogleCredential,
-    auto_select: false,
-    cancel_on_tap_outside: false
+    auto_select: true,           // ← silently sign in frequent users
+    cancel_on_tap_outside: false,
+    context: 'signin',
+    itp_support: true            // ← supports Safari ITP
   });
+
+  // Try silent / One Tap auto sign-in first
+  google.accounts.id.prompt(function(notification) {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Auto sign-in not possible — show manual button in gate
+      renderGateGoogleBtn();
+    }
+    // If auto sign-in fires, handleGoogleCredential will be called
+    // and the gate will be dismissed automatically
+  });
+
+  // Also render the manual button as fallback (hidden until needed)
   renderGateGoogleBtn();
 }
 
@@ -829,13 +852,24 @@ function init() {
     buildProfileChip(existingUser);
     return;
   }
-  // New visitor
+  // New visitor — load GSI early so auto_select can fire silently
   buildGate();
   var gsi = document.createElement('script');
   gsi.src = 'https://accounts.google.com/gsi/client';
   gsi.async = true; gsi.defer = true;
-  gsi.onload = initGoogleSignIn;
+  gsi.onload = function() {
+    initGoogleSignIn();
+    // Give auto sign-in 2.5s to succeed silently before showing gate
+    setTimeout(function() {
+      var gate = document.getElementById('hrs-signin-gate');
+      // If gate still exists and user isn't signed in yet, show it
+      if (gate && !getSignedInUser()) {
+        watchForIntroEnd();
+      }
+    }, 2500);
+  };
   document.head.appendChild(gsi);
+  // Also start watching intro in parallel (gate won't show if auto-login wins)
   watchForIntroEnd();
 }
 
