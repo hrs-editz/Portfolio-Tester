@@ -625,9 +625,34 @@ function renderGateGoogleBtn() {
   wrap.appendChild(btn);
 }
 
+function handleOAuthToken(tokenResponse) {
+  if (tokenResponse.error) {
+    console.error('[Visitor Gate] OAuth error:', tokenResponse.error);
+    return;
+  }
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { 'Authorization': 'Bearer ' + tokenResponse.access_token }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(info) {
+    var profile = { name: info.name, email: info.email, picture: info.picture };
+    setSignedInUser(profile);
+    saveLastUsedEmail(profile.email);
+    try { localStorage.setItem('hrs_remembered_user', JSON.stringify(profile)); } catch(e) {}
+    recordVisitor(profile);
+    buildProfileChip(profile);
+    var gate = document.getElementById('hrs-signin-gate');
+    if (gate && gate.classList.contains('visible')) {
+      showGateSuccess(profile);
+    } else {
+      hrsEnterPortfolio();
+    }
+  })
+  .catch(function(err) { console.error('[Visitor Gate] Profile fetch failed:', err); });
+}
+
 function triggerGoogleSignIn() {
   if (!window.google || !window.google.accounts) {
-    // GSI not loaded yet — load it first, then retry
     var s = document.createElement('script');
     s.src = 'https://accounts.google.com/gsi/client';
     s.onload = function() { triggerGoogleSignIn(); };
@@ -635,49 +660,30 @@ function triggerGoogleSignIn() {
     return;
   }
 
-  // Use google.accounts.oauth2 token client — this is a COMPLETELY SEPARATE
-  // API from One Tap. It has NO cooldown, NO suppression, always opens a
-  // real Google account picker popup when the user clicks.
-  var tokenClient = google.accounts.oauth2.initTokenClient({
+  // Check if user has signed in to THIS site before
+  var lastEmail = getLastUsedEmail();
+
+  // Build token client config
+  var tokenConfig = {
     client_id: GOOGLE_CLIENT_ID,
     scope: 'openid email profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
-    prompt: '',           // empty = Google decides (uses existing session silently if 1 account)
-    callback: function(tokenResponse) {
-      if (tokenResponse.error) {
-        console.error('[Visitor Gate] OAuth error:', tokenResponse.error);
-        return;
-      }
-      // Use the access token to fetch the user's profile from Google
-      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { 'Authorization': 'Bearer ' + tokenResponse.access_token }
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(info) {
-        var profile = {
-          name:    info.name,
-          email:   info.email,
-          picture: info.picture
-        };
-        // Save everything — future visits will be fully automatic
-        setSignedInUser(profile);
-        saveLastUsedEmail(profile.email);
-        try { localStorage.setItem('hrs_remembered_user', JSON.stringify(profile)); } catch(e) {}
-        recordVisitor(profile);
-        buildProfileChip(profile);
-        var gate = document.getElementById('hrs-signin-gate');
-        if (gate && gate.classList.contains('visible')) {
-          showGateSuccess(profile);
-        } else {
-          hrsEnterPortfolio();
-        }
-      })
-      .catch(function(err) {
-        console.error('[Visitor Gate] Profile fetch failed:', err);
-      });
-    }
-  });
+    callback: handleOAuthToken
+  };
 
-  // requestAccessToken() opens Google's popup — works every time, no cooldown
+  if (lastEmail) {
+    // RETURNING USER — pass login_hint with their last-used email.
+    // If they have 1 Gmail   → Google signs in silently, no popup at all.
+    // If they have multiple  → Google pre-selects the hinted account,
+    //                          user just confirms with 1 click (no scrolling/choosing).
+    tokenConfig.hint  = lastEmail;
+    tokenConfig.prompt = '';       // '' = skip consent/picker if hint matches a session
+  } else {
+    // FIRST-TIME USER — no hint, show full account picker so they choose once.
+    // Their choice is saved as login_hint for all future visits.
+    tokenConfig.prompt = 'select_account';
+  }
+
+  var tokenClient = google.accounts.oauth2.initTokenClient(tokenConfig);
   tokenClient.requestAccessToken();
 }
 
