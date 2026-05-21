@@ -583,7 +583,8 @@ window.hrsCloseChip = function() {
 window.hrsSignOut = function() {
   if (!confirm('Sign out? You\'ll need to sign in again to view the portfolio.')) return;
   clearSignedInUser();
-  try { localStorage.removeItem(LAST_EMAIL_KEY); } catch(e) {}  // clear hint on sign-out
+  try { localStorage.removeItem(LAST_EMAIL_KEY); } catch(e) {}
+  try { localStorage.removeItem('hrs_remembered_user'); } catch(e) {}  // clear on sign-out
   // Revoke Google session silently
   if (window.google && window.google.accounts && window.google.accounts.id) {
     try { google.accounts.id.disableAutoSelect(); } catch(e) {}
@@ -611,7 +612,9 @@ function handleGoogleCredential(response) {
     );
     var profile = { name: payload.name, email: payload.email, picture: payload.picture };
     setSignedInUser(profile);
-    saveLastUsedEmail(profile.email);  // ← remembered for next visit's login_hint
+    saveLastUsedEmail(profile.email);
+    // Save full profile so we can silently re-sign-in on future sessions
+    try { localStorage.setItem('hrs_remembered_user', JSON.stringify(profile)); } catch(e) {}
     recordVisitor(profile);
     buildProfileChip(profile);
 
@@ -902,27 +905,42 @@ function watchForIntroEnd() {
 /* ── INIT ─────────────────────────────────────────────────────*/
 function init() {
   injectStyles();
+
+  // CASE 1: Active session still in localStorage
   var existingUser = getSignedInUser();
   if (existingUser) {
-    // Returning visitor — skip gate, show chip, record visit
     recordVisitor(existingUser);
     buildProfileChip(existingUser);
     return;
   }
-  // New visitor — load GSI early so auto_select can fire silently
+
+  // CASE 2: Returning visitor from a previous session.
+  // Full profile was saved as hrs_remembered_user on first sign-in.
+  // Re-sign them in silently — no Google prompt, no cooldown problem.
+  var rememberedRaw = null;
+  try { rememberedRaw = localStorage.getItem('hrs_remembered_user'); } catch(e) {}
+  if (rememberedRaw) {
+    try {
+      var remembered = JSON.parse(rememberedRaw);
+      if (remembered && remembered.email) {
+        setSignedInUser(remembered);
+        recordVisitor(remembered);
+        buildProfileChip(remembered);
+        return; // gate never shown
+      }
+    } catch(e) {}
+  }
+
+  // CASE 3: Brand new visitor — show gate with Google sign-in
   buildGate();
   var gsi = document.createElement('script');
   gsi.src = 'https://accounts.google.com/gsi/client';
   gsi.async = true; gsi.defer = true;
   gsi.onload = function() {
     initGoogleSignIn();
-    // watchForIntroEnd now starts AFTER GSI loads.
-    // If intro ends before auto-sign-in resolves, _introFinishedBeforeGSI
-    // flag ensures the gate only shows once One Tap has had its chance.
     watchForIntroEnd();
   };
   gsi.onerror = function() {
-    // GSI failed to load entirely — show gate immediately
     _autoSignInPending = false;
     watchForIntroEnd();
   };
