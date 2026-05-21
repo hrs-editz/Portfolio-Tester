@@ -626,49 +626,59 @@ function renderGateGoogleBtn() {
 }
 
 function triggerGoogleSignIn() {
-  if (!window.google || !window.google.accounts) return;
+  if (!window.google || !window.google.accounts) {
+    // GSI not loaded yet — load it first, then retry
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = function() { triggerGoogleSignIn(); };
+    document.head.appendChild(s);
+    return;
+  }
 
-  // Use the OAuth2 token/code flow via a popup — this is NOT subject to
-  // One Tap cooldown and always opens the Google account chooser.
-  var client = google.accounts.oauth2.initCodeClient({
+  // Use google.accounts.oauth2 token client — this is a COMPLETELY SEPARATE
+  // API from One Tap. It has NO cooldown, NO suppression, always opens a
+  // real Google account picker popup when the user clicks.
+  var tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
-    scope: 'openid email profile',
-    ux_mode: 'popup',
-    callback: function(codeResponse) {
-      // Exchange auth code on client side using id_token from One Tap flow.
-      // Since we only need profile info (no server), re-trigger One Tap prompt
-      // in non-auto mode to get the credential directly.
-      google.accounts.id.prompt();
+    scope: 'openid email profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+    prompt: '',           // empty = Google decides (uses existing session silently if 1 account)
+    callback: function(tokenResponse) {
+      if (tokenResponse.error) {
+        console.error('[Visitor Gate] OAuth error:', tokenResponse.error);
+        return;
+      }
+      // Use the access token to fetch the user's profile from Google
+      fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { 'Authorization': 'Bearer ' + tokenResponse.access_token }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(info) {
+        var profile = {
+          name:    info.name,
+          email:   info.email,
+          picture: info.picture
+        };
+        // Save everything — future visits will be fully automatic
+        setSignedInUser(profile);
+        saveLastUsedEmail(profile.email);
+        try { localStorage.setItem('hrs_remembered_user', JSON.stringify(profile)); } catch(e) {}
+        recordVisitor(profile);
+        buildProfileChip(profile);
+        var gate = document.getElementById('hrs-signin-gate');
+        if (gate && gate.classList.contains('visible')) {
+          showGateSuccess(profile);
+        } else {
+          hrsEnterPortfolio();
+        }
+      })
+      .catch(function(err) {
+        console.error('[Visitor Gate] Profile fetch failed:', err);
+      });
     }
   });
 
-  // Simpler: just re-initialize GSI without auto_select and force the prompt.
-  // This always shows the account chooser regardless of cooldown.
-  google.accounts.id.initialize({
-    client_id:             GOOGLE_CLIENT_ID,
-    callback:              handleGoogleCredential,
-    auto_select:           false,  // no auto — user explicitly clicked
-    cancel_on_tap_outside: true,
-    context:               'signin',
-    itp_support:           true
-  });
-  google.accounts.id.prompt(function(notification) {
-    // If prompt is suppressed even now, fall back to OAuth2 popup
-    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      var reason = notification.getNotDisplayedReason
-        ? notification.getNotDisplayedReason()
-        : (notification.getSkippedReason ? notification.getSkippedReason() : '');
-      // browser_not_supported, invalid_client, missing_client_id, etc.
-      // In this case open full OAuth redirect as last resort
-      var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-        + '?client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID)
-        + '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname)
-        + '&response_type=token'
-        + '&scope=' + encodeURIComponent('openid email profile')
-        + '&prompt=select_account';
-      window.location.href = authUrl;
-    }
-  });
+  // requestAccessToken() opens Google's popup — works every time, no cooldown
+  tokenClient.requestAccessToken();
 }
 
 function handleGoogleCredential(response) {
