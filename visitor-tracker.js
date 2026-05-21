@@ -659,6 +659,7 @@ function injectVisitorsTab() {
     var btn = document.createElement('button');
     btn.className = 'admin-tab';
     btn.setAttribute('data-hrs-visitors', '1');
+    btn.setAttribute('data-tab', 'visitors');
     btn.textContent = '👥 Visitors';
     // ✅ CORRECT — hooks into the page's switchTab system
 btn.onclick = function() {
