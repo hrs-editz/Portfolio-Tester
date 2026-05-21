@@ -647,34 +647,53 @@ function showGateSuccess(profile) {
   setTimeout(hrsEnterPortfolio, 2500);
 }
 
+/* ── AUTO SIGN-IN STATE ───────────────────────────────────────*/
+// Tracks whether One Tap is still pending; gate stays hidden until resolved
+var _autoSignInPending = true;
+var _introFinishedBeforeGSI = false;
+
 function initGoogleSignIn() {
   if (!window.google || !window.google.accounts) return;
   if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
     var wrap = document.getElementById('hrs-gate-google-btn');
     if (wrap) wrap.innerHTML = '<div style="font-family:monospace;font-size:0.72rem;color:#e74c3c;padding:0.8rem;background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.25);border-radius:4px;line-height:1.8;">⚠️ Set GOOGLE_CLIENT_ID<br>in visitor-tracker.js</div>';
+    _autoSignInPending = false;
     return;
   }
+
   google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGoogleCredential,
-    auto_select: true,           // ← silently sign in frequent users
+    client_id:          GOOGLE_CLIENT_ID,
+    callback:           handleGoogleCredential,
+    auto_select:        true,   // silently sign in users with one active Google session
     cancel_on_tap_outside: false,
-    context: 'signin',
-    itp_support: true            // ← supports Safari ITP
+    context:            'signin',
+    itp_support:        true    // Safari ITP support
   });
 
-  // Try silent / One Tap auto sign-in first
+  // Attempt silent / One Tap auto sign-in.
+  // Google calls the prompt callback immediately if auto-sign-in is not possible.
   google.accounts.id.prompt(function(notification) {
+    // isDisplayed  → One Tap UI shown (user interaction needed — NOT silent)
+    // isNotDisplayed / isSkippedMoment → auto-sign-in not possible
     if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-      // Auto sign-in not possible — show manual button in gate
+      // Auto sign-in won't fire — fall back to manual gate button
+      _autoSignInPending = false;
       renderGateGoogleBtn();
+      // If the intro already finished while we were waiting, show the gate now
+      if (_introFinishedBeforeGSI) showGate();
     }
-    // If auto sign-in fires, handleGoogleCredential will be called
-    // and the gate will be dismissed automatically
+    // If auto_select fires silently, handleGoogleCredential is called directly
+    // and the gate is dismissed without ever being shown.
   });
 
-  // Also render the manual button as fallback (hidden until needed)
-  renderGateGoogleBtn();
+  // Safety timeout: if Google's prompt callback never fires (e.g. blocked by
+  // browser extensions), fall back to manual gate after 3 s.
+  setTimeout(function() {
+    if (!_autoSignInPending) return;
+    _autoSignInPending = false;
+    renderGateGoogleBtn();
+    if (_introFinishedBeforeGSI) showGate();
+  }, 3000);
 }
 
 /* ── ADMIN VISITORS TAB ───────────────────────────────────────*/
@@ -814,6 +833,13 @@ window.addEventListener('load', function() {
 
 /* ── INTRO DETECTION ──────────────────────────────────────────*/
 window.hrsIntroFinished = function() {
+  // If One Tap is still pending a response, hold the gate — don't flash it.
+  // When the prompt callback fires and resolves _autoSignInPending, it will
+  // call showGate() itself via _introFinishedBeforeGSI flag.
+  if (_autoSignInPending) {
+    _introFinishedBeforeGSI = true;
+    return;
+  }
   showGate();
   if (window.google && window.google.accounts) renderGateGoogleBtn();
 };
@@ -859,18 +885,17 @@ function init() {
   gsi.async = true; gsi.defer = true;
   gsi.onload = function() {
     initGoogleSignIn();
-    // Give auto sign-in 2.5s to succeed silently before showing gate
-    setTimeout(function() {
-      var gate = document.getElementById('hrs-signin-gate');
-      // If gate still exists and user isn't signed in yet, show it
-      if (gate && !getSignedInUser()) {
-        watchForIntroEnd();
-      }
-    }, 2500);
+    // watchForIntroEnd now starts AFTER GSI loads.
+    // If intro ends before auto-sign-in resolves, _introFinishedBeforeGSI
+    // flag ensures the gate only shows once One Tap has had its chance.
+    watchForIntroEnd();
+  };
+  gsi.onerror = function() {
+    // GSI failed to load entirely — show gate immediately
+    _autoSignInPending = false;
+    watchForIntroEnd();
   };
   document.head.appendChild(gsi);
-  // Also start watching intro in parallel (gate won't show if auto-login wins)
-  watchForIntroEnd();
 }
 
 if (document.readyState === 'loading') {
