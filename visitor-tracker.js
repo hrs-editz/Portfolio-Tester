@@ -1,19 +1,102 @@
 /* ================================================================
    HARIHARAN R — PORTFOLIO  |  visitor-tracker.js
    Mandatory Google Sign-In Gate + Profile Chip + Admin Visitors Tab
+   ✅ Firebase Firestore — visitors stored server-side (all devices)
 ================================================================ */
 
 const GOOGLE_CLIENT_ID    = '633973864394-r0h9go0n37rj9ihog3johihinvs1751r.apps.googleusercontent.com';
-const VISITOR_STORAGE_KEY = 'hrs_visitors';
+const VISITOR_STORAGE_KEY = 'hrs_visitors';   // kept for local cache fallback
 const SIGNED_IN_KEY       = 'hrs_signed_in_user';
 
-/* ── DATA HELPERS ─────────────────────────────────────────────*/
-function getVisitors() {
+/* ── FIREBASE CONFIG ──────────────────────────────────────────
+   🔧 REPLACE these values with your own Firebase project config.
+   Steps:
+   1. Go to https://console.firebase.google.com/
+   2. Create a project (or open existing one)
+   3. Click ⚙️ Project Settings → "Your apps" → Add Web App
+   4. Copy the firebaseConfig object values below
+   5. In Firestore → Rules, set:
+        allow read, write: if true;   ← for now (tighten later)
+──────────────────────────────────────────────────────────────*/
+const firebaseConfig = {
+  apiKey: "AIzaSyBX7fB1VjxiXwsxi84ef6mJAa5L0rD06mM",
+  authDomain: "hrs-editz-counter.firebaseapp.com",
+  databaseURL: "https://hrs-editz-counter-default-rtdb.firebaseio.com",
+  projectId: "hrs-editz-counter",
+  storageBucket: "hrs-editz-counter.firebasestorage.app",
+  messagingSenderId: "123122757550",
+  appId: "1:123122757550:web:45790ce5c6e8b18d5ae23f"
+};
+
+
+const FIRESTORE_COLLECTION = 'portfolio_visitors'; // Firestore collection name
+
+/* ── FIREBASE LOADER ──────────────────────────────────────────*/
+var _db = null;   // Firestore instance, set after SDK loads
+
+function loadFirebase(callback) {
+  if (_db) { callback(_db); return; }
+  // Check if already loaded
+  if (window.firebase && window.firebase.firestore) {
+    _db = firebase.firestore();
+    callback(_db);
+    return;
+  }
+  // Load Firebase SDKs dynamically
+  function loadScript(src, next) {
+    var s = document.createElement('script');
+    s.src = src; s.async = false;
+    s.onload = next;
+    s.onerror = function() { console.warn('[Visitor Tracker] Failed to load', src); };
+    document.head.appendChild(s);
+  }
+  loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function() {
+    loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js', function() {
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+        }
+        _db = firebase.firestore();
+        callback(_db);
+      } catch(e) {
+        console.error('[Visitor Tracker] Firebase init failed:', e);
+      }
+    });
+  });
+}
+
+/* ── DATA HELPERS (local cache) ───────────────────────────────*/
+function getVisitorsLocal() {
   try { return JSON.parse(localStorage.getItem(VISITOR_STORAGE_KEY) || '[]'); }
   catch(e) { return []; }
 }
-function saveVisitors(arr) {
+function saveVisitorsLocal(arr) {
   try { localStorage.setItem(VISITOR_STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
+}
+
+// Fetch all visitors from Firestore and cache locally
+function getVisitors(callback) {
+  loadFirebase(function(db) {
+    db.collection(FIRESTORE_COLLECTION)
+      .orderBy('time', 'desc')
+      .limit(500)
+      .get()
+      .then(function(snapshot) {
+        var visitors = [];
+        snapshot.forEach(function(doc) { visitors.push(doc.data()); });
+        saveVisitorsLocal(visitors);   // update local cache
+        callback(visitors);
+      })
+      .catch(function(err) {
+        console.warn('[Visitor Tracker] Firestore read failed, using local cache:', err);
+        callback(getVisitorsLocal());
+      });
+  });
+}
+
+// Save visitors now just writes to Firestore (local cache updated by getVisitors)
+function saveVisitors(arr) {
+  saveVisitorsLocal(arr); // keep local in sync for offline fallback
 }
 function getSignedInUser() {
   try { return JSON.parse(localStorage.getItem(SIGNED_IN_KEY) || 'null'); }
@@ -27,29 +110,53 @@ function clearSignedInUser() {
 }
 
 function recordVisitor(profile) {
-  var visitors = getVisitors();
-  var existing = visitors.find(function(v) { return v.email === profile.email; });
   var ua = navigator.userAgent;
   var device  = /Mobi|Android/i.test(ua) ? '📱 Mobile' :
                 /Tablet|iPad/i.test(ua)   ? '📲 Tablet' : '🖥️ Desktop';
   var browser = /Edg/i.test(ua) ? 'Edge' : /Chrome/i.test(ua) ? 'Chrome' :
                 /Firefox/i.test(ua) ? 'Firefox' : /Safari/i.test(ua) ? 'Safari' : 'Other';
-  if (!existing) {
-    visitors.unshift({ name: profile.name||'Unknown', email: profile.email||'—',
-      picture: profile.picture||'', time: new Date().toISOString(),
-      device: device, browser: browser, ref: document.referrer||'Direct', visits: 1 });
-    if (visitors.length > 500) visitors = visitors.slice(0, 500);
-  } else {
-    visitors = visitors.map(function(v) {
-      if (v.email === profile.email) {
-        v.visits = (v.visits||1) + 1;
-        v.lastSeen = new Date().toISOString();
-        v.picture = profile.picture || v.picture;
+
+  loadFirebase(function(db) {
+    var docId = profile.email.replace(/[@.]/g, '_');
+    var docRef = db.collection(FIRESTORE_COLLECTION).doc(docId);
+    docRef.get().then(function(docSnap) {
+      if (!docSnap.exists) {
+        return docRef.set({
+          name:    profile.name    || 'Unknown',
+          email:   profile.email   || '—',
+          picture: profile.picture || '',
+          time:    new Date().toISOString(),
+          device:  device,
+          browser: browser,
+          ref:     document.referrer || 'Direct',
+          visits:  1
+        });
+      } else {
+        var data = docSnap.data();
+        return docRef.update({
+          visits:   (data.visits || 1) + 1,
+          lastSeen: new Date().toISOString(),
+          picture:  profile.picture || data.picture || ''
+        });
       }
-      return v;
+    }).catch(function(err) {
+      console.warn('[Visitor Tracker] Firestore write failed, using localStorage fallback:', err);
+      var visitors = getVisitorsLocal();
+      var existing = visitors.find(function(v) { return v.email === profile.email; });
+      if (!existing) {
+        visitors.unshift({ name: profile.name||'Unknown', email: profile.email||'—',
+          picture: profile.picture||'', time: new Date().toISOString(),
+          device: device, browser: browser, ref: document.referrer||'Direct', visits: 1 });
+        if (visitors.length > 500) visitors = visitors.slice(0, 500);
+      } else {
+        visitors = visitors.map(function(v) {
+          if (v.email === profile.email) { v.visits=(v.visits||1)+1; v.lastSeen=new Date().toISOString(); }
+          return v;
+        });
+      }
+      saveVisitorsLocal(visitors);
     });
-  }
-  saveVisitors(visitors);
+  });
 }
 
 /* ── ALL STYLES ───────────────────────────────────────────────*/
@@ -595,57 +702,78 @@ btn.onclick = function() {
   }
 }
 
+function buildVisitorListHTML(visitors) {
+  var nowTs = Date.now();
+  if (visitors.length === 0)
+    return '<div class="vis-empty"><span class="vis-empty-icon">\uD83D\uDD0D</span>No visitors yet.<br>They\'ll appear here after signing in.</div>';
+  return visitors.map(function(v) {
+    var date = new Date(v.time);
+    var isNew = (nowTs - date.getTime()) < 3600000;
+    var avHTML = v.picture
+      ? '<img class="vis-avatar" src="' + v.picture + '" alt="" onerror="this.style.display=\'none\'">'
+      : '<div class="vis-avatar-ph">\uD83D\uDC64</div>';
+    var lastSeen = v.lastSeen ? getTimeAgo(new Date(v.lastSeen)) : '';
+    return '<div class="vis-card">' +
+      avHTML +
+      '<div class="vis-info">' +
+        '<div class="vis-name">' + v.name + '</div>' +
+        '<div class="vis-email">\u2709\uFE0F ' + v.email + '</div>' +
+        '<div class="vis-meta">' +
+          '<span>' + (v.device||'') + '</span><span>\uD83C\uDF10 ' + (v.browser||'') + '</span>' +
+          '<span>\uD83D\uDD17 ' + trimRef(v.ref) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="vis-right">' +
+        (isNew ? '<span class="vis-new-badge">NEW</span>' : '') +
+        '<div class="vis-time">' + getTimeAgo(date) + '<br><span style="font-size:0.6rem;opacity:0.6;">' + date.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) + '</span></div>' +
+        (v.visits > 1 ? '<div class="vis-visits">\uD83D\uDD01 ' + v.visits + ' visits</div>' : '') +
+        (lastSeen ? '<div class="vis-visits">Last: ' + lastSeen + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
 function renderVisitorsTab() {
   var container = document.getElementById('visitors-content');
   if (!container) return;
-  var visitors = getVisitors();
-  var nowTs = Date.now();
   var clientIdSet = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE');
-  var warnHTML = clientIdSet ? '' : `<div class="vis-setup-warn">⚠️ <strong>Setup needed:</strong> Open <code>visitor-tracker.js</code> and set your <code>GOOGLE_CLIENT_ID</code>.<br><a href="https://console.cloud.google.com/" target="_blank">→ Get a free Google Client ID</a></div>`;
-  var listHTML = visitors.length === 0
-    ? `<div class="vis-empty"><span class="vis-empty-icon">🔍</span>No visitors yet.<br>They'll appear here after signing in.</div>`
-    : visitors.map(function(v) {
-        var date = new Date(v.time);
-        var isNew = (nowTs - date.getTime()) < 3600000;
-        var avHTML = v.picture
-          ? '<img class="vis-avatar" src="' + v.picture + '" alt="" onerror="this.style.display=\'none\'">'
-          : '<div class="vis-avatar-ph">👤</div>';
-        var lastSeen = v.lastSeen ? getTimeAgo(new Date(v.lastSeen)) : '';
-        return `<div class="vis-card">
-          ${avHTML}
-          <div class="vis-info">
-            <div class="vis-name">${v.name}</div>
-            <div class="vis-email">✉️ ${v.email}</div>
-            <div class="vis-meta">
-              <span>${v.device}</span><span>🌐 ${v.browser}</span>
-              <span>🔗 ${trimRef(v.ref)}</span>
-            </div>
-          </div>
-          <div class="vis-right">
-            ${isNew ? '<span class="vis-new-badge">NEW</span>' : ''}
-            <div class="vis-time">${getTimeAgo(date)}<br><span style="font-size:0.6rem;opacity:0.6;">${date.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span></div>
-            ${(v.visits>1) ? '<div class="vis-visits">🔁 '+v.visits+' visits</div>' : ''}
-            ${lastSeen ? '<div class="vis-visits">Last: '+lastSeen+'</div>' : ''}
-          </div>
-        </div>`;
-      }).join('');
-  container.innerHTML = `${warnHTML}
-    <div class="vis-header">
-      <h3>👥 VISITOR LOG</h3>
-      <div style="display:flex;align-items:center;gap:0.75rem;">
-        <span class="vis-count-badge">${visitors.length} visitor${visitors.length!==1?'s':''}</span>
-        ${visitors.length>0?'<button class="vis-clear-btn" onclick="hrsClearVisitors()">🗑️ Clear All</button>':''}
-      </div>
-    </div>
-    <div class="vis-note">Visitors must sign in with Google before viewing the portfolio. Data is stored only in this browser.</div>
-    <div class="vis-list">${listHTML}</div>`;
+  var firebaseSet = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+  var warnHTML = '';
+  if (!clientIdSet) warnHTML += '<div class="vis-setup-warn">\u26A0\uFE0F <strong>Setup needed:</strong> Set your <code>GOOGLE_CLIENT_ID</code> in visitor-tracker.js.<br><a href="https://console.cloud.google.com/" target="_blank">\u2192 Get a free Google Client ID</a></div>';
+  if (!firebaseSet) warnHTML += '<div class="vis-setup-warn" style="margin-top:0.5rem;">\u26A0\uFE0F <strong>Firebase not configured:</strong> Fill in <code>FIREBASE_CONFIG</code> in visitor-tracker.js.<br><a href="https://console.firebase.google.com/" target="_blank">\u2192 Create a free Firebase project</a></div>';
+
+  container.innerHTML = warnHTML + '<div class="vis-list"><div class="vis-empty"><span class="vis-empty-icon">\u23F3</span>Loading visitors…</div></div>';
+
+  getVisitors(function(visitors) {
+    var listHTML = buildVisitorListHTML(visitors);
+    container.innerHTML = warnHTML +
+      '<div class="vis-header">' +
+        '<h3>\uD83D\uDC65 VISITOR LOG</h3>' +
+        '<div style="display:flex;align-items:center;gap:0.75rem;">' +
+          '<span class="vis-count-badge">' + visitors.length + ' visitor' + (visitors.length !== 1 ? 's' : '') + '</span>' +
+          (visitors.length > 0 ? '<button class="vis-clear-btn" onclick="hrsClearVisitors()">\uD83D\uDDD1\uFE0F Clear All</button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="vis-note">\uD83D\uDD12 Visitor data saved to Firebase Firestore — visible from any device in admin panel.</div>' +
+      '<div class="vis-list">' + listHTML + '</div>';
+  });
 }
 
 window.hrsClearVisitors = function() {
-  if (!confirm('Clear all visitor records? This cannot be undone.')) return;
-  saveVisitors([]); renderVisitorsTab();
+  if (!confirm('Clear ALL visitor records from Firestore? This cannot be undone.')) return;
+  loadFirebase(function(db) {
+    db.collection(FIRESTORE_COLLECTION).get().then(function(snapshot) {
+      var batch = db.batch();
+      snapshot.forEach(function(doc) { batch.delete(doc.ref); });
+      return batch.commit();
+    }).then(function() {
+      saveVisitorsLocal([]);
+      renderVisitorsTab();
+    }).catch(function(err) {
+      console.error('[Visitor Tracker] Clear failed:', err);
+    });
+  });
 };
-
 /* ── HELPERS ──────────────────────────────────────────────────*/
 function getTimeAgo(date) {
   var diff = Math.floor((Date.now() - date.getTime()) / 1000);
