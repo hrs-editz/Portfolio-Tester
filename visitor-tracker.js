@@ -458,6 +458,53 @@ function injectStyles() {
   .vis-setup-warn code {
     background: rgba(255,255,255,0.06); padding: 0.1rem 0.35rem; border-radius: 2px;
   }
+
+  /* ══════════════════════════════════════
+     AUTO SIGN-IN TOAST
+  ══════════════════════════════════════ */
+  #hrs-auto-toast {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    z-index: 99995;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #161616;
+    border: 1px solid rgba(232,197,71,0.28);
+    border-radius: 10px;
+    padding: 10px 16px 10px 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events: none;
+    max-width: 300px;
+  }
+  #hrs-auto-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  #hrs-auto-toast img {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid rgba(232,197,71,0.35); flex-shrink: 0; object-fit: cover;
+  }
+  #hrs-auto-toast .hrs-toast-avatar-ph {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(232,197,71,0.1); border: 2px solid rgba(232,197,71,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.95rem; flex-shrink: 0;
+  }
+  #hrs-auto-toast .hrs-toast-text { flex: 1; min-width: 0; }
+  #hrs-auto-toast .hrs-toast-title {
+    font-family: var(--font-body, sans-serif); font-size: 0.82rem;
+    font-weight: 600; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #hrs-auto-toast .hrs-toast-sub {
+    font-family: var(--font-mono, monospace); font-size: 0.65rem;
+    color: var(--accent, #e8c547); margin-top: 2px; letter-spacing: 0.03em;
+  }
   `;
   document.head.appendChild(s);
 }
@@ -591,6 +638,41 @@ window.hrsCloseChip = function() {
   var chip = document.getElementById('hrs-profile-chip');
   if (chip) chip.classList.remove('open');
 };
+
+/* ── AUTO SIGN-IN TOAST ───────────────────────────────────────*/
+// Shown instead of the full gate when a single remembered account is detected.
+function buildAutoSignInToast(profile) {
+  var old = document.getElementById('hrs-auto-toast');
+  if (old) old.remove();
+
+  var toast = document.createElement('div');
+  toast.id = 'hrs-auto-toast';
+
+  var avatarHTML = profile.picture
+    ? '<img src="' + profile.picture + '" alt="" onerror="this.style.display=\'none\'">'
+    : '<div class="hrs-toast-avatar-ph">👤</div>';
+
+  var firstName = (profile.name || '').split(' ')[0];
+  toast.innerHTML =
+    avatarHTML +
+    '<div class="hrs-toast-text">' +
+      '<div class="hrs-toast-title">Welcome back, ' + firstName + '!</div>' +
+      '<div class="hrs-toast-sub">⚡ Auto signed-in · ' + profile.email + '</div>' +
+    '</div>';
+
+  document.body.appendChild(toast);
+
+  // Animate in
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() { toast.classList.add('show'); });
+  });
+
+  // Fade out after 3.5 s
+  setTimeout(function() {
+    toast.classList.remove('show');
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 400);
+  }, 3500);
+}
 
 window.hrsSignOut = function() {
   if (!confirm('Sign out? You\'ll need to sign in again to view the portfolio.')) return;
@@ -988,7 +1070,7 @@ function watchForIntroEnd() {
 function init() {
   injectStyles();
 
-  // CASE 1: Active session still in localStorage
+  // CASE 1: Active session still in localStorage — silent re-entry, no UI needed.
   var existingUser = getSignedInUser();
   if (existingUser) {
     recordVisitor(existingUser);
@@ -996,9 +1078,8 @@ function init() {
     return;
   }
 
-  // CASE 2: Returning visitor from a previous session.
-  // Full profile was saved as hrs_remembered_user on first sign-in.
-  // Re-sign them in silently — no Google prompt, no cooldown problem.
+  // CASE 2: Returning visitor — full profile was saved on first sign-in.
+  // Auto sign-in silently: no gate, just a brief toast notification.
   var rememberedRaw = null;
   try { rememberedRaw = localStorage.getItem('hrs_remembered_user'); } catch(e) {}
   if (rememberedRaw) {
@@ -1008,12 +1089,14 @@ function init() {
         setSignedInUser(remembered);
         recordVisitor(remembered);
         buildProfileChip(remembered);
+        // Show a subtle toast instead of the full gate
+        buildAutoSignInToast(remembered);
         return; // gate never shown
       }
     } catch(e) {}
   }
 
-  // CASE 3: Brand new visitor — show gate with Google sign-in
+  // CASE 3: Brand new visitor — show the full manual sign-in gate.
   buildGate();
   renderGateGoogleBtn(); // render custom button immediately — no GSI needed
   var gsi = document.createElement('script');
