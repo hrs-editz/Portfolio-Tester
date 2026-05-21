@@ -661,19 +661,17 @@ function injectVisitorsTab() {
     btn.setAttribute('data-hrs-visitors', '1');
     btn.setAttribute('data-tab', 'visitors');
     btn.textContent = '👥 Visitors';
-    // ✅ CORRECT — hooks into the page's switchTab system
-btn.onclick = function() {
-  if (window.switchTab) {
-    window.switchTab('visitors');
-  } else {
-    document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
-    btn.classList.add('active');
-    document.querySelectorAll('.admin-section').forEach(function(s){ s.classList.remove('active'); });
-    var sec = document.getElementById('tab-visitors');
-    if (sec) { sec.classList.add('active'); }
-  }
-  renderVisitorsTab();
-};
+    btn.onclick = function(e) {
+      // Highlight this button, deactivate others
+      document.querySelectorAll('.admin-tab').forEach(function(t){ t.classList.remove('active'); });
+      btn.classList.add('active');
+      // Show visitors section, hide others
+      document.querySelectorAll('.admin-section').forEach(function(s){ s.classList.remove('active'); });
+      var sec = document.getElementById('tab-visitors');
+      if (sec) sec.classList.add('active');
+      // Load visitor data
+      renderVisitorsTab();
+    };
     tabBar.appendChild(btn);
   }
   if (!document.getElementById('tab-visitors')) {
