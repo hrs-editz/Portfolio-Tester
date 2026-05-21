@@ -1,47 +1,37 @@
 /* ================================================================
    HARIHARAN R — PORTFOLIO  |  visitor-tracker.js
    Mandatory Google Sign-In Gate + Profile Chip + Admin Visitors Tab
-   ✅ Firebase Firestore — visitors stored server-side (all devices)
+   ✅ Firebase Realtime Database — visitors stored server-side
 ================================================================ */
 
 const GOOGLE_CLIENT_ID    = '633973864394-r0h9go0n37rj9ihog3johihinvs1751r.apps.googleusercontent.com';
-const VISITOR_STORAGE_KEY = 'hrs_visitors';   // kept for local cache fallback
+const VISITOR_STORAGE_KEY = 'hrs_visitors';   // local cache fallback
 const SIGNED_IN_KEY       = 'hrs_signed_in_user';
 
-/* ── FIREBASE CONFIG ──────────────────────────────────────────
-   🔧 REPLACE these values with your own Firebase project config.
-   Steps:
-   1. Go to https://console.firebase.google.com/
-   2. Create a project (or open existing one)
-   3. Click ⚙️ Project Settings → "Your apps" → Add Web App
-   4. Copy the firebaseConfig object values below
-   5. In Firestore → Rules, set:
-        allow read, write: if true;   ← for now (tighten later)
-──────────────────────────────────────────────────────────────*/
-const firebaseConfig = {
-  apiKey: "AIzaSyBX7fB1VjxiXwsxi84ef6mJAa5L0rD06mM",
-  authDomain: "hrs-editz-counter.firebaseapp.com",
-  projectId: "hrs-editz-counter",
-  storageBucket: "hrs-editz-counter.firebasestorage.app",
+/* ── FIREBASE CONFIG ──────────────────────────────────────────*/
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBX7fB1VjxiXwsxi84ef6mJAa5L0rD06mM",
+  authDomain:        "hrs-editz-counter.firebaseapp.com",
+  databaseURL:       "https://hrs-editz-counter-default-rtdb.firebaseio.com",
+  projectId:         "hrs-editz-counter",
+  storageBucket:     "hrs-editz-counter.firebasestorage.app",
   messagingSenderId: "123122757550",
-  appId: "1:123122757550:web:45790ce5c6e8b18d5ae23f"
+  appId:             "1:123122757550:web:45790ce5c6e8b18d5ae23f"
 };
 
+const DB_PATH = 'portfolio_visitors'; // Realtime DB path
 
-const FIRESTORE_COLLECTION = 'portfolio_visitors'; // Firestore collection name
-
-/* ── FIREBASE LOADER ──────────────────────────────────────────*/
-var _db = null;   // Firestore instance, set after SDK loads
+/* ── FIREBASE LOADER (Realtime Database) ─────────────────────*/
+var _db = null;
 
 function loadFirebase(callback) {
   if (_db) { callback(_db); return; }
-  // Check if already loaded
-  if (window.firebase && window.firebase.firestore) {
-    _db = firebase.firestore();
+  if (window.firebase && window.firebase.database) {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.database();
     callback(_db);
     return;
   }
-  // Load Firebase SDKs dynamically
   function loadScript(src, next) {
     var s = document.createElement('script');
     s.src = src; s.async = false;
@@ -50,12 +40,10 @@ function loadFirebase(callback) {
     document.head.appendChild(s);
   }
   loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js', function() {
-    loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js', function() {
+    loadScript('https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js', function() {
       try {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(FIREBASE_CONFIG);
-        }
-        _db = firebase.firestore();
+        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        _db = firebase.database();
         callback(_db);
       } catch(e) {
         console.error('[Visitor Tracker] Firebase init failed:', e);
@@ -73,29 +61,26 @@ function saveVisitorsLocal(arr) {
   try { localStorage.setItem(VISITOR_STORAGE_KEY, JSON.stringify(arr)); } catch(e) {}
 }
 
-// Fetch all visitors from Firestore and cache locally
+// Fetch all visitors from Realtime DB
 function getVisitors(callback) {
   loadFirebase(function(db) {
-    db.collection(FIRESTORE_COLLECTION)
-      .orderBy('time', 'desc')
-      .limit(500)
-      .get()
+    db.ref(DB_PATH).orderByChild('time').limitToLast(500).once('value')
       .then(function(snapshot) {
         var visitors = [];
-        snapshot.forEach(function(doc) { visitors.push(doc.data()); });
-        saveVisitorsLocal(visitors);   // update local cache
+        snapshot.forEach(function(child) { visitors.push(child.val()); });
+        visitors.reverse(); // newest first
+        saveVisitorsLocal(visitors);
         callback(visitors);
       })
       .catch(function(err) {
-        console.warn('[Visitor Tracker] Firestore read failed, using local cache:', err);
+        console.warn('[Visitor Tracker] DB read failed, using local cache:', err);
         callback(getVisitorsLocal());
       });
   });
 }
 
-// Save visitors now just writes to Firestore (local cache updated by getVisitors)
 function saveVisitors(arr) {
-  saveVisitorsLocal(arr); // keep local in sync for offline fallback
+  saveVisitorsLocal(arr);
 }
 function getSignedInUser() {
   try { return JSON.parse(localStorage.getItem(SIGNED_IN_KEY) || 'null'); }
@@ -116,11 +101,12 @@ function recordVisitor(profile) {
                 /Firefox/i.test(ua) ? 'Firefox' : /Safari/i.test(ua) ? 'Safari' : 'Other';
 
   loadFirebase(function(db) {
-    var docId = profile.email.replace(/[@.]/g, '_');
-    var docRef = db.collection(FIRESTORE_COLLECTION).doc(docId);
-    docRef.get().then(function(docSnap) {
-      if (!docSnap.exists) {
-        return docRef.set({
+    // Use email as key (replace . and @ for valid DB path)
+    var key = profile.email.replace(/\./g, '_').replace(/@/g, '__at__');
+    var ref = db.ref(DB_PATH + '/' + key);
+    ref.once('value').then(function(snap) {
+      if (!snap.exists()) {
+        return ref.set({
           name:    profile.name    || 'Unknown',
           email:   profile.email   || '—',
           picture: profile.picture || '',
@@ -131,15 +117,15 @@ function recordVisitor(profile) {
           visits:  1
         });
       } else {
-        var data = docSnap.data();
-        return docRef.update({
+        var data = snap.val();
+        return ref.update({
           visits:   (data.visits || 1) + 1,
           lastSeen: new Date().toISOString(),
           picture:  profile.picture || data.picture || ''
         });
       }
     }).catch(function(err) {
-      console.warn('[Visitor Tracker] Firestore write failed, using localStorage fallback:', err);
+      console.warn('[Visitor Tracker] DB write failed, localStorage fallback:', err);
       var visitors = getVisitorsLocal();
       var existing = visitors.find(function(v) { return v.email === profile.email; });
       if (!existing) {
@@ -736,7 +722,7 @@ function renderVisitorsTab() {
   var container = document.getElementById('visitors-content');
   if (!container) return;
   var clientIdSet = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE');
-  var firebaseSet = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+  var firebaseSet = FIREBASE_CONFIG.databaseURL && !FIREBASE_CONFIG.databaseURL.includes('YOUR_');
   var warnHTML = '';
   if (!clientIdSet) warnHTML += '<div class="vis-setup-warn">\u26A0\uFE0F <strong>Setup needed:</strong> Set your <code>GOOGLE_CLIENT_ID</code> in visitor-tracker.js.<br><a href="https://console.cloud.google.com/" target="_blank">\u2192 Get a free Google Client ID</a></div>';
   if (!firebaseSet) warnHTML += '<div class="vis-setup-warn" style="margin-top:0.5rem;">\u26A0\uFE0F <strong>Firebase not configured:</strong> Fill in <code>FIREBASE_CONFIG</code> in visitor-tracker.js.<br><a href="https://console.firebase.google.com/" target="_blank">\u2192 Create a free Firebase project</a></div>';
@@ -759,18 +745,11 @@ function renderVisitorsTab() {
 }
 
 window.hrsClearVisitors = function() {
-  if (!confirm('Clear ALL visitor records from Firestore? This cannot be undone.')) return;
+  if (!confirm('Clear ALL visitor records? This cannot be undone.')) return;
   loadFirebase(function(db) {
-    db.collection(FIRESTORE_COLLECTION).get().then(function(snapshot) {
-      var batch = db.batch();
-      snapshot.forEach(function(doc) { batch.delete(doc.ref); });
-      return batch.commit();
-    }).then(function() {
-      saveVisitorsLocal([]);
-      renderVisitorsTab();
-    }).catch(function(err) {
-      console.error('[Visitor Tracker] Clear failed:', err);
-    });
+    db.ref(DB_PATH).remove()
+      .then(function() { saveVisitorsLocal([]); renderVisitorsTab(); })
+      .catch(function(err) { console.error('[Visitor Tracker] Clear failed:', err); });
   });
 };
 /* ── HELPERS ──────────────────────────────────────────────────*/
